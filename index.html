@@ -7,287 +7,81 @@
 <title>Quran Live</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html, body { height:100%; background:#0d0d0d; color:#fff; font-family:'Inter',sans-serif; overflow:hidden; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-serif;overflow:hidden;}
 
-/* ══ LAYOUT ══════════════════════════════════════════ */
-.app {
-display: grid;
-grid-template-columns: 1fr 80px;
-height: 100%;
-}
-@media (orientation: portrait) {
-.app { grid-template-columns: 1fr; grid-template-rows: 1fr 80px; }
-.sidebar { flex-direction: row; justify-content: center; border-left: none; border-top: 1px solid #181818; padding: 0 0 8px; }
-.content { padding: 0 24px; }
-.settings-panel { right: 16px !important; }
+.app{display:grid;grid-template-columns:1fr 76px;height:100%;}
+@media(orientation:portrait){
+.app{grid-template-columns:1fr;grid-template-rows:1fr 72px;}
+.sidebar{flex-direction:row;justify-content:center;border-left:none;border-top:1px solid #161616;padding:0 0 6px;}
+.content{padding:0 22px;}
+.settings-panel{right:14px!important;top:48px!important;}
 }
 
-/* ══ CONTENT ══════════════════════════════════════════ */
-.content {
-padding: 0 32px;
-display: flex;
-flex-direction: column;
-overflow: hidden;
-position: relative;
-}
+.content{padding:0 28px;display:flex;flex-direction:column;overflow:hidden;}
 
-.topbar {
-display: flex;
-align-items: center;
-justify-content: space-between;
-padding: 16px 0 12px;
-flex-shrink: 0;
-position: relative;
-z-index: 10;
-}
-.app-title {
-font-size: 0.65rem;
-letter-spacing: 0.24em;
-text-transform: uppercase;
-color: #303030;
-font-weight: 300;
-}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px;flex-shrink:0;position:relative;z-index:10;}
+.app-title{font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;color:#2a2a2a;font-weight:300;}
 
-/* ══ GEAR ══════════════════════════════════════════════ */
-.gear-btn {
-width: 30px; height: 30px;
-border: none; background: none;
-cursor: pointer;
-display: flex; align-items: center; justify-content: center;
-color: #303030; transition: color 0.2s;
-border-radius: 50%;
-}
-.gear-btn:hover, .gear-btn.open { color: #999; }
-.gear-btn svg { width: 15px; height: 15px; }
+.gear-btn{width:28px;height:28px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#2a2a2a;transition:color .2s;border-radius:50%;}
+.gear-btn:hover,.gear-btn.open{color:#888;}
+.gear-btn svg{width:14px;height:14px;}
 
-/* ══ SETTINGS ══════════════════════════════════════════ */
-.settings-panel {
-position: fixed;
-top: 50px; right: 88px;
-width: 260px;
-background: #141414;
-border: 1px solid #222;
-border-radius: 14px;
-padding: 16px;
-z-index: 500;
-display: none;
-box-shadow: 0 24px 64px rgba(0,0,0,0.98);
-}
-.settings-panel.open { display: block; }
+.settings-panel{position:fixed;top:46px;right:84px;width:255px;background:#131313;border:1px solid #1f1f1f;border-radius:13px;padding:15px;z-index:500;display:none;box-shadow:0 24px 64px rgba(0,0,0,.99);}
+.settings-panel.open{display:block;}
+.s-label{display:block;font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:#3a3a3a;margin-bottom:6px;margin-top:13px;}
+.s-label:first-child{margin-top:0;}
+.settings-panel input,.settings-panel select{width:100%;background:#0d0d0d;border:1px solid #1f1f1f;border-radius:7px;padding:8px 10px;color:#bbb;font-family:‘Inter’,sans-serif;font-size:.82rem;outline:none;}
+.settings-panel input:focus,.settings-panel select:focus{border-color:#2e2e2e;}
+.settings-panel select option{background:#131313;}
+.mode-toggle{display:flex;background:#0d0d0d;border:1px solid #1f1f1f;border-radius:7px;overflow:hidden;}
+.mode-btn{flex:1;padding:8px 0;border:none;background:transparent;color:#3a3a3a;font-family:‘Inter’,sans-serif;font-size:.74rem;cursor:pointer;transition:all .2s;}
+.mode-btn.active{background:#1a1a1a;color:#bbb;}
+.btn-save{width:100%;margin-top:12px;padding:8px;background:#fff;color:#000;border:none;border-radius:7px;font-family:‘Inter’,sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;transition:opacity .2s;}
+.btn-save:hover{opacity:.85;}
 
-.s-label {
-display: block;
-font-size: 0.62rem;
-letter-spacing: 0.14em;
-text-transform: uppercase;
-color: #444;
-margin-bottom: 6px;
-margin-top: 14px;
-}
-.s-label:first-child { margin-top: 0; }
+/* pace */
+.pace-bar{display:none;align-items:center;gap:7px;padding:4px 0 8px;flex-shrink:0;}
+.pace-bar.on{display:flex;}
+.pace-dot{width:4px;height:4px;border-radius:50%;background:#1e1e1e;transition:background .3s;}
+.pace-dot.on{background:#555;}
+.pace-lbl{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:#2a2a2a;}
+.pace-lbl.ok{color:#444;}
 
-.settings-panel input,
-.settings-panel select {
-width: 100%;
-background: #0d0d0d;
-border: 1px solid #222;
-border-radius: 7px;
-padding: 8px 11px;
-color: #ccc;
-font-family: ‘Inter’, sans-serif;
-font-size: 0.83rem;
-outline: none;
-}
-.settings-panel input:focus,
-.settings-panel select:focus { border-color: #333; }
-.settings-panel select option { background: #141414; }
+/* 3-slot stage */
+.stage{flex:1;display:none;flex-direction:column;overflow:hidden;}
+.stage.on{display:flex;}
 
-.mode-toggle {
-display: flex;
-background: #0d0d0d;
-border: 1px solid #222;
-border-radius: 7px;
-overflow: hidden;
-}
-.mode-btn {
-flex: 1; padding: 8px 0;
-border: none; background: transparent;
-color: #444;
-font-family: ‘Inter’, sans-serif;
-font-size: 0.76rem;
-cursor: pointer; transition: all 0.2s;
-}
-.mode-btn.active { background: #1c1c1c; color: #ccc; }
+.slot{flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 0;transition:opacity .45s ease;}
+.slot.prev{opacity:.18;}
+.slot.cur{opacity:1;border-top:1px solid #181818;border-bottom:1px solid #181818;}
+.slot.nxt{opacity:.18;}
 
-.btn-save {
-width: 100%; margin-top: 12px; padding: 9px;
-background: #fff; color: #000;
-border: none; border-radius: 7px;
-font-family: ‘Inter’, sans-serif;
-font-size: 0.8rem; font-weight: 500;
-cursor: pointer; transition: opacity 0.2s;
-}
-.btn-save:hover { opacity: 0.85; }
+.ar{font-family:‘Amiri’,serif;font-size:clamp(1rem,3.6vw,1.85rem);line-height:1.95;direction:rtl;text-align:right;color:#f0f0f0;}
+.tr{margin-top:5px;font-size:clamp(.76rem,1.7vw,.92rem);line-height:1.6;color:#999;font-weight:300;}
+.rf{margin-top:5px;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#242424;}
 
-/* ══ PACE INDICATOR ══════════════════════════════════ */
-.pace-bar {
-display: none;
-align-items: center;
-gap: 8px;
-padding: 6px 0 10px;
-flex-shrink: 0;
-}
-.pace-bar.visible { display: flex; }
-.pace-dot {
-width: 5px; height: 5px; border-radius: 50%;
-background: #333;
-transition: background 0.3s;
-}
-.pace-dot.active { background: #fff; }
-.pace-label {
-font-size: 0.6rem;
-letter-spacing: 0.14em;
-text-transform: uppercase;
-color: #333;
-}
-.pace-label.calibrated { color: #555; }
+/* idle */
+.idle{flex:1;display:flex;flex-direction:column;justify-content:center;gap:9px;}
+.dots{display:flex;gap:5px;}
+.dots span{width:3px;height:3px;border-radius:50%;background:#1e1e1e;animation:dp 1.4s ease-in-out infinite;}
+.dots span:nth-child(2){animation-delay:.2s;}
+.dots span:nth-child(3){animation-delay:.4s;}
+@keyframes dp{0%,80%,100%{opacity:.3;transform:scale(.8);}40%{opacity:1;transform:scale(1);}}
+.dots.on span{background:#777;}
+.idle-lbl{font-size:.62rem;letter-spacing:.17em;text-transform:uppercase;color:#222;}
 
-/* ══ 3-AYAH PORTRAIT VIEW ════════════════════════════ */
-/* Full-height container, 3 equal rows */
-.ayah-stage {
-flex: 1;
-display: none;
-flex-direction: column;
-justify-content: center;
-gap: 0;
-overflow: hidden;
-}
-.ayah-stage.visible { display: flex; }
-
-.ayah-slot {
-flex: 1;
-display: flex;
-flex-direction: column;
-justify-content: center;
-padding: 12px 0;
-transition: opacity 0.5s ease;
-overflow: hidden;
-}
-
-/* prev & next: dim */
-.ayah-slot.prev { opacity: 0.22; }
-.ayah-slot.next { opacity: 0.22; }
-/* current: full white */
-.ayah-slot.current { opacity: 1; }
-
-/* dividers */
-.ayah-slot.current {
-border-top: 1px solid #1e1e1e;
-border-bottom: 1px solid #1e1e1e;
-}
-
-.arabic-text {
-font-family: ‘Amiri’, serif;
-font-size: clamp(1.1rem, 3.8vw, 1.9rem);
-line-height: 1.9;
-direction: rtl;
-text-align: right;
-color: #f0f0f0;
-}
-.trans-text {
-margin-top: 6px;
-font-size: clamp(0.78rem, 1.8vw, 0.93rem);
-line-height: 1.65;
-color: #aaa;
-font-weight: 300;
-}
-.ref-text {
-margin-top: 6px;
-font-size: 0.58rem;
-letter-spacing: 0.15em;
-text-transform: uppercase;
-color: #2a2a2a;
-}
-
-/* Slide animation when advancing */
-.ayah-stage.sliding .ayah-slot {
-transition: opacity 0.4s ease, transform 0.4s ease;
-}
-
-/* ══ IDLE ══════════════════════════════════════════════ */
-.idle-wrap {
-flex: 1;
-display: flex;
-flex-direction: column;
-justify-content: center;
-gap: 10px;
-}
-.idle-dots { display: flex; gap: 6px; }
-.idle-dots span {
-width: 4px; height: 4px; border-radius: 50%;
-background: #242424;
-animation: dp 1.4s ease-in-out infinite;
-}
-.idle-dots span:nth-child(2) { animation-delay: 0.2s; }
-.idle-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes dp {
-0%,80%,100% { opacity:0.3; transform:scale(0.8); }
-40% { opacity:1; transform:scale(1); }
-}
-.idle-dots.live span { background: #888; }
-.idle-text {
-font-size: 0.65rem;
-letter-spacing: 0.18em;
-text-transform: uppercase;
-color: #282828;
-}
-
-/* ══ SIDEBAR ══════════════════════════════════════════ */
-.sidebar {
-border-left: 1px solid #141414;
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-gap: 16px;
-padding: 16px 0;
-flex-shrink: 0;
-}
-
-.mic-btn {
-width: 56px; height: 56px;
-border-radius: 50%;
-border: 1.5px solid #1e1e1e;
-background: #111;
-cursor: pointer;
-display: flex; align-items: center; justify-content: center;
-transition: all 0.25s;
-position: relative;
-}
-.mic-btn svg { width: 20px; height: 20px; fill: #aaa; transition: fill 0.2s; }
-.mic-btn:hover { border-color: #444; }
-.mic-btn.on { background: #efefef; border-color: #efefef; }
-.mic-btn.on svg { fill: #000; }
-.mic-btn.on::after {
-content: ‘’;
-position: absolute; inset: -6px;
-border-radius: 50%;
-border: 1px solid rgba(255,255,255,0.08);
-animation: ring 2s ease-out infinite;
-}
-@keyframes ring {
-0% { transform:scale(1); opacity:1; }
-100% { transform:scale(1.6); opacity:0; }
-}
-.mic-btn.thinking svg { fill: #2a2a2a; }
-
-.timer {
-font-size: 0.6rem;
-color: #282828;
-letter-spacing: 0.08em;
-font-variant-numeric: tabular-nums;
-}
+/* sidebar */
+.sidebar{border-left:1px solid #131313;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:14px 0;flex-shrink:0;}
+.mic{width:52px;height:52px;border-radius:50%;border:1.5px solid #1a1a1a;background:#0f0f0f;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s;position:relative;}
+.mic svg{width:19px;height:19px;fill:#888;transition:fill .2s;}
+.mic:hover{border-color:#333;}
+.mic.on{background:#eee;border-color:#eee;}
+.mic.on svg{fill:#000;}
+.mic.on::after{content:’’;position:absolute;inset:-6px;border-radius:50%;border:1px solid rgba(255,255,255,.07);animation:ring 2s ease-out infinite;}
+@keyframes ring{0%{transform:scale(1);opacity:1;}100%{transform:scale(1.6);opacity:0;}}
+.mic.busy svg{fill:#222;}
+.tmr{font-size:.58rem;color:#222;letter-spacing:.07em;font-variant-numeric:tabular-nums;}
 </style>
 
 </head>
@@ -303,518 +97,431 @@ font-variant-numeric: tabular-nums;
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <div class="settings-panel" id="settingsPanel">
+        <div class="settings-panel" id="sp">
           <span class="s-label">OpenAI API Key</span>
           <input type="password" id="apiKey" placeholder="sk-..."/>
           <span class="s-label">Язык перевода</span>
-          <select id="langSelect">
+          <select id="lang">
             <option value="ru">Русский</option>
             <option value="en">English</option>
-            <option value="tr">Türkçe</option>
-            <option value="uz">O'zbekcha</option>
-            <option value="kk">Қазақша</option>
-            <option value="tj">Тоҷикӣ</option>
-            <option value="de">Deutsch</option>
-            <option value="fr">Français</option>
           </select>
           <span class="s-label">Режим</span>
           <div class="mode-toggle">
-            <button class="mode-btn active" id="mManual" onclick="setMode('manual')">Поиск аята</button>
-            <button class="mode-btn" id="mAuto" onclick="setMode('auto')">Live</button>
+            <button class="mode-btn active" id="mM" onclick="setMode('manual')">Поиск аята</button>
+            <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
-          <button class="btn-save" onclick="saveSettings()">Сохранить</button>
+          <button class="btn-save" onclick="saveS()">Сохранить</button>
         </div>
       </div>
     </div>
 
 ```
-<!-- Pace calibration indicator -->
 <div class="pace-bar" id="paceBar">
   <div class="pace-dot" id="pd0"></div>
   <div class="pace-dot" id="pd1"></div>
-  <div class="pace-label" id="paceLabel">Калибровка темпа...</div>
+  <span class="pace-lbl" id="paceLbl">Калибровка...</span>
 </div>
 
-<!-- Idle state -->
-<div class="idle-wrap" id="idleWrap">
-  <div class="idle-dots" id="idleDots"><span></span><span></span><span></span></div>
-  <div class="idle-text" id="idleText">Нажмите микрофон</div>
+<div class="idle" id="idle">
+  <div class="dots" id="dots"><span></span><span></span><span></span></div>
+  <div class="idle-lbl" id="idleLbl">Нажмите микрофон</div>
 </div>
 
-<!-- 3-ayah stage: prev / current / next -->
-<div class="ayah-stage" id="ayahStage">
-  <div class="ayah-slot prev" id="slotPrev">
-    <div class="arabic-text" id="prevArabic"></div>
-    <div class="trans-text"  id="prevTrans"></div>
-    <div class="ref-text"    id="prevRef"></div>
-  </div>
-  <div class="ayah-slot current" id="slotCurrent">
-    <div class="arabic-text" id="curArabic"></div>
-    <div class="trans-text"  id="curTrans"></div>
-    <div class="ref-text"    id="curRef"></div>
-  </div>
-  <div class="ayah-slot next" id="slotNext">
-    <div class="arabic-text" id="nextArabic"></div>
-    <div class="trans-text"  id="nextTrans"></div>
-    <div class="ref-text"    id="nextRef"></div>
-  </div>
+<div class="stage" id="stage">
+  <div class="slot prev" id="sPrev"><div class="ar" id="arPrev"></div><div class="tr" id="trPrev"></div><div class="rf" id="rfPrev"></div></div>
+  <div class="slot cur"  id="sCur"> <div class="ar" id="arCur"></div> <div class="tr" id="trCur"></div> <div class="rf" id="rfCur"></div></div>
+  <div class="slot nxt"  id="sNxt"> <div class="ar" id="arNxt"></div> <div class="tr" id="trNxt"></div> <div class="rf" id="rfNxt"></div></div>
 </div>
 ```
 
   </div>
 
   <div class="sidebar">
-    <div class="timer" id="timerEl"></div>
-    <button class="mic-btn" id="micBtn" onclick="toggleRec()">
-      <svg viewBox="0 0 24 24">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/>
-      </svg>
+    <div class="tmr" id="tmr"></div>
+    <button class="mic" id="mic" onclick="toggleRec()">
+      <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/></svg>
     </button>
   </div>
 </div>
 
 <script>
-// ══ Config ════════════════════════════════════════════
-let apiKey = localStorage.getItem('qk') || '';
-let mode   = localStorage.getItem('qmode') || 'manual';
-
-// ══ Recording state ═══════════════════════════════════
-let mediaRec = null, audioCtx = null;
-let allChunks = [], pendChunks = [];
-let recOn = false;
-let timerSec = 0, timerIv = null, autoIv = null;
-let silenceTimer = null, wasSpeaking = false;
-let sliceStart = 0;
-let mime = 'audio/mp4';
-
-// ══ Pace calibration ══════════════════════════════════
-// We track: for each confirmed ayah, how long it took (ms) and how many Arabic chars
-// From 2+ samples we compute chars/ms → estimate duration of next ayah
-let paceSamples = [];     // [{chars, ms}]
-let charsPerMs  = null;   // calibrated rate, null = not yet
-let pendingSliceStart = 0; // when we started recording THIS slice
-
-// ══ Ayah state ════════════════════════════════════════
-let ayahWindow = [null, null, null]; // [prev, current, next]
-let liveQueue  = [], liveRunning = false;
-let nextPaceTimer = null; // setTimeout for auto-advancing to next ayah
-
-// ══ Init ══════════════════════════════════════════════
+const QB=[
+[1,1,"Al-Fatiha","بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ","Во имя Аллаха, Милостивого, Милосердного","In the name of Allah, the Entirely Merciful, the Especially Merciful"],
+[1,2,"Al-Fatiha","الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ","Хвала Аллаху, Господу миров","All praise is due to Allah, Lord of the worlds"],
+[1,3,"Al-Fatiha","الرَّحْمَٰنِ الرَّحِيمِ","Милостивому, Милосердному","The Entirely Merciful, the Especially Merciful"],
+[1,4,"Al-Fatiha","مَالِكِ يَوْمِ الدِّينِ","Владыке Дня воздаяния","Sovereign of the Day of Recompense"],
+[1,5,"Al-Fatiha","إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ","Тебе одному мы поклоняемся и Тебя одного молим о помощи","It is You we worship and You we ask for help"],
+[1,6,"Al-Fatiha","اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ","Веди нас прямым путём","Guide us to the straight path"],
+[1,7,"Al-Fatiha","صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ","Путём тех, кого Ты облагодетельствовал, не тех, на кого пал гнев, и не заблудших","The path of those upon whom You have bestowed favor, not of those who have earned Your anger or of those who are astray"],
+[78,1,"An-Naba","عَمَّ يَتَسَاءَلُونَ","О чём они спрашивают друг друга?","About what are they asking one another?"],
+[78,2,"An-Naba","عَنِ النَّبَإِ الْعَظِيمِ","О великой вести,","About the great news"],
+[78,3,"An-Naba","الَّذِي هُمْ فِيهِ مُخْتَلِفُونَ","в которой они расходятся во мнениях.","That over which they are in disagreement"],
+[78,4,"An-Naba","كَلَّا سَيَعْلَمُونَ","Нет! Они скоро узнают!","No! They are going to know"],
+[78,5,"An-Naba","ثُمَّ كَلَّا سَيَعْلَمُونَ","Потом нет! Они скоро узнают!","Then, no! They are going to know"],
+[78,6,"An-Naba","أَلَمْ نَجْعَلِ الْأَرْضَ مِهَادًا","Разве Мы не сделали землю ложем,","Have We not made the earth a resting place?"],
+[78,7,"An-Naba","وَالْجِبَالَ أَوْتَادًا","а горы — кольями?","And the mountains as stakes?"],
+[78,8,"An-Naba","وَخَلَقْنَاكُمْ أَزْوَاجًا","Мы создали вас парами","And created you in pairs"],
+[78,9,"An-Naba","وَجَعَلْنَا نَوْمَكُمْ سُبَاتًا","и сделали ваш сон отдыхом,","And made your sleep as rest"],
+[78,10,"An-Naba","وَجَعَلْنَا اللَّيْلَ لِبَاسًا","и сделали ночь покровом,","And made the night as clothing"],
+[78,11,"An-Naba","وَجَعَلْنَا النَّهَارَ مَعَاشًا","и сделали день временем для жизни,","And made the day for livelihood"],
+[78,12,"An-Naba","وَبَنَيْنَا فَوْقَكُمْ سَبْعًا شِدَادًا","и воздвигли над вами семь твердых небес,","And built above you seven strong ones"],
+[78,13,"An-Naba","وَجَعَلْنَا سِرَاجًا وَهَّاجًا","и поместили пылающий светильник,","And made a burning lamp"],
+[78,14,"An-Naba","وَأَنزَلْنَا مِنَ الْمُعْصِرَاتِ مَاءً ثَجَّاجًا","и низвели из туч обильную воду,","And sent down from the rain clouds pouring water"],
+[78,15,"An-Naba","لِّنُخْرِجَ بِهِ حَبًّا وَنَبَاتًا","чтобы вырастить зерно и растения","That We may bring forth thereby grain and vegetation"],
+[78,16,"An-Naba","وَجَنَّاتٍ أَلْفَافًا","и сады с густой листвой.","And gardens of entwined growth"],
+[78,17,"An-Naba","إِنَّ يَوْمَ الْفَصْلِ كَانَ مِيقَاتًا","Воистину, день Суда — назначенное время","Indeed, the Day of Judgement is an appointed time"],
+[78,18,"An-Naba","يَوْمَ يُنفَخُ فِي الصُّورِ فَتَأْتُونَ أَفْوَاجًا","в день, когда подуют в Рог и вы придёте толпами,","The Day the Horn is blown and you will come forth in multitudes"],
+[78,19,"An-Naba","وَفُتِحَتِ السَّمَاءُ فَكَانَتْ أَبْوَابًا","и небо раскроется и станет воротами,","And the heaven is opened and will become gateways"],
+[78,20,"An-Naba","وَسُيِّرَتِ الْجِبَالُ فَكَانَتْ سَرَابًا","и горы тронутся с места и станут миражом.","And the mountains are removed and will be as a mirage"],
+[78,21,"An-Naba","إِنَّ جَهَنَّمَ كَانَتْ مِرْصَادًا","Воистину, Геенна является засадой","Indeed, Hell has been lying in wait"],
+[78,22,"An-Naba","لِّلطَّاغِينَ مَآبًا","для беззаконников — обиталищем,","For the transgressors, a place of return"],
+[78,23,"An-Naba","لَّابِثِينَ فِيهَا أَحْقَابًا","в которой они пробудут долгие века.","In which they will remain for ages"],
+[78,24,"An-Naba","لَّا يَذُوقُونَ فِيهَا بَرْدًا وَلَا شَرَابًا","Они не вкусят там ни прохлады, ни питья,","They will not taste therein any coolness or drink"],
+[78,25,"An-Naba","إِلَّا حَمِيمًا وَغَسَّاقًا","кроме кипятка и гноя —","Except scalding water and foul purulence"],
+[78,26,"An-Naba","جَزَاءً وِفَاقًا","воздаяние, вполне соответствующее их деяниям.","An appropriate recompense"],
+[78,27,"An-Naba","إِنَّهُمْ كَانُوا لَا يَرْجُونَ حِسَابًا","Воистину, они не ждали расчёта","Indeed, they were not expecting an account"],
+[78,28,"An-Naba","وَكَذَّبُوا بِآيَاتِنَا كِذَّابًا","и считали Наши знамения ложью.","And denied Our signs with great denial"],
+[78,29,"An-Naba","وَكُلَّ شَيْءٍ أَحْصَيْنَاهُ كِتَابًا","Всякую вещь Мы переписали в Книге.","But all things We have enumerated in writing"],
+[78,30,"An-Naba","فَذُوقُوا فَلَن نَّزِيدَكُمْ إِلَّا عَذَابًا","Вкусите же! Мы не прибавим вам ничего, кроме мучений.","So taste the punishment; never will We increase you except in torment"],
+[78,31,"An-Naba","إِنَّ لِلْمُتَّقِينَ مَفَازًا","Воистину, богобоязненным уготован успех:","Indeed, for the righteous is attainment"],
+[78,32,"An-Naba","حَدَائِقَ وَأَعْنَابًا","сады и виноградники,","Gardens and grapevines"],
+[78,33,"An-Naba","وَكَوَاعِبَ أَتْرَابًا","и ровесницы с налитой грудью,","And full-breasted companions of equal age"],
+[78,34,"An-Naba","وَكَأْسًا دِهَاقًا","и чаша, полная до краёв.","And a full cup"],
+[78,35,"An-Naba","لَّا يَسْمَعُونَ فِيهَا لَغْوًا وَلَا كِذَّابًا","Они не услышат там ни пустословия, ни лжи.","No ill speech will they hear therein or any falsehood"],
+[78,36,"An-Naba","جَزَاءً مِّن رَّبِّكَ عَطَاءً حِسَابًا","Это воздаяние от твоего Господа, достаточный дар.","As reward from your Lord, a gift of account"],
+[78,37,"An-Naba","رَّبِّ السَّمَاوَاتِ وَالْأَرْضِ وَمَا بَيْنَهُمَا الرَّحْمَٰنِ لَا يَمْلِكُونَ مِنْهُ خِطَابًا","Господа небес и земли и того, что между ними, Милостивого. Они не могут обратиться к Нему.","Lord of the heavens and the earth and whatever is between them, the Most Merciful. They possess not from Him the power of speech"],
+[78,38,"An-Naba","يَوْمَ يَقُومُ الرُّوحُ وَالْمَلَائِكَةُ صَفًّا لَّا يَتَكَلَّمُونَ إِلَّا مَنْ أَذِنَ لَهُ الرَّحْمَٰنُ وَقَالَ صَوَابًا","В тот день Дух и ангелы встанут рядами. Никто не заговорит, кроме тех, кому Милостивый позволит, и они скажут правду.","The Day when the Spirit and the angels will stand in rows, they will not speak except for one whom the Most Merciful permits, and he will say what is correct"],
+[78,39,"An-Naba","ذَٰلِكَ الْيَوْمُ الْحَقُّ فَمَن شَاءَ اتَّخَذَ إِلَىٰ رَبِّهِ مَآبًا","Это — истинный день. Кто пожелает, пусть изберёт путь возврата к своему Господу.","That is the True Day; so whoever wills may take to his Lord a way back"],
+[78,40,"An-Naba","إِنَّا أَنذَرْنَاكُمْ عَذَابًا قَرِيبًا يَوْمَ يَنظُرُ الْمَرْءُ مَا قَدَّمَتْ يَدَاهُ وَيَقُولُ الْكَافِرُ يَا لَيْتَنِي كُنتُ تُرَابًا","Воистину, Мы предупредили вас о близких мучениях, в тот день, когда человек увидит то, что уготовали его руки. Неверующий скажет: «Лучше бы я был прахом!»","Indeed, We have warned you of a near punishment on the Day when a man will observe what his hands have put forth and the disbeliever will say, 'Oh, I wish that I were dust!'"],
+[67,1,"Al-Mulk","تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ","Благословен Тот, в Чьей Руке власть, и Кто способен на всякую вещь!","Blessed is He in whose hand is dominion, and He is over all things competent"],
+[67,2,"Al-Mulk","الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا وَهُوَ الْعَزِيزُ الْغَفُورُ","Тот, Кто создал смерть и жизнь, чтобы испытать вас, кто из вас лучше по делам. Он — Могущественный, Прощающий.","He who created death and life to test you as to which of you is best in deed - and He is the Exalted in Might, the Forgiving"],
+[67,3,"Al-Mulk","الَّذِي خَلَقَ سَبْعَ سَمَاوَاتٍ طِبَاقًا مَّا تَرَىٰ فِي خَلْقِ الرَّحْمَٰنِ مِن تَفَاوُتٍ فَارْجِعِ الْبَصَرَ هَلْ تَرَىٰ مِن فُطُورٍ","Тот, Кто создал семь небес одно над другим. Ты не увидишь в творении Милостивого никакого несоответствия. Обрати свой взор: видишь ли ты какие-нибудь трещины?","He who created seven heavens in layers. You do not see in the creation of the Most Merciful any inconsistency. So return your vision. Do you see any breaks?"],
+[67,4,"Al-Mulk","ثُمَّ ارْجِعِ الْبَصَرَ كَرَّتَيْنِ يَنقَلِبْ إِلَيْكَ الْبَصَرُ خَاسِئًا وَهُوَ حَسِيرٌ","Потом посмотри ещё раз и ещё раз. Твой взор вернётся к тебе унижённым и утомлённым.","Then return your vision twice again. Your vision will return to you humbled while it is fatigued"],
+[67,5,"Al-Mulk","وَلَقَدْ زَيَّنَّا السَّمَاءَ الدُّنْيَا بِمَصَابِيحَ وَجَعَلْنَاهَا رُجُومًا لِّلشَّيَاطِينِ وَأَعْتَدْنَا لَهُمْ عَذَابَ السَّعِيرِ","Мы украсили ближайшее небо светильниками и сделали их камнями против шайтанов. Мы уготовили для них мучение в Пламени.","And We have certainly beautified the nearest heaven with stars and have made from them what is thrown at the devils and have prepared for them the punishment of the Blaze"],
+[112,1,"Al-Ikhlas","قُلْ هُوَ اللَّهُ أَحَدٌ","Скажи: «Он — Аллах Единый,","Say: He is Allah, the One"],
+[112,2,"Al-Ikhlas","اللَّهُ الصَّمَدُ","Аллах Самодостаточный.","Allah, the Eternal, Absolute"],
+[112,3,"Al-Ikhlas","لَمْ يَلِدْ وَلَمْ يُولَدْ","Он не родил и не был рождён,","He neither begets nor is born"],
+[112,4,"Al-Ikhlas","وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ","и нет никого равного Ему»","Nor is there to Him any equivalent"],
+[113,1,"Al-Falaq","قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ","Скажи: «Прибегаю к защите Господа рассвета","Say: I seek refuge in the Lord of daybreak"],
+[113,2,"Al-Falaq","مِن شَرِّ مَا خَلَقَ","от зла того, что Он сотворил,","From the evil of that which He created"],
+[113,3,"Al-Falaq","وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ","от зла мрака, когда он наступает,","And from the evil of darkness when it settles"],
+[113,4,"Al-Falaq","وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ","от зла колдуний, которые дуют на узлы,","And from the evil of the blowers in knots"],
+[113,5,"Al-Falaq","وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ","от зла завистника, когда он завидует».","And from the evil of an envier when he envies"],
+[114,1,"An-Nas","قُلْ أَعُوذُ بِرَبِّ النَّاسِ","Скажи: «Прибегаю к защите Господа людей,","Say: I seek refuge in the Lord of mankind"],
+[114,2,"An-Nas","مَلِكِ النَّاسِ","Царя людей,","The Sovereign of mankind"],
+[114,3,"An-Nas","إِلَٰهِ النَّاسِ","Бога людей,","The God of mankind"],
+[114,4,"An-Nas","مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ","от зла искусителя отступающего,","From the evil of the retreating whisperer"],
+[114,5,"An-Nas","الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ","который нашёптывает в груди людей,","Who whispers in the breasts of mankind"],
+[114,6,"An-Nas","مِنَ الْجِنَّةِ وَالنَّاسِ","из числа джиннов и людей».","From among the jinn and mankind"]
+];
+function qGet(s,a){return QB.find(r=>r[0]===s&&r[1]===a)||null;}
+function qNext(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>=0&&i<QB.length-1?QB[i+1]:null;}
+function qPrev(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>0?QB[i-1]:null;}
+function qFmt(r,lang){if(!r)return null;const tr=lang==="en"?r[5]:r[4];return{s:r[0],a:r[1],name:r[2],arabic:r[3],tr};}
+// ══ Config ════════════════════════════════════
+let apiKey = localStorage.getItem('qk')||'';
+let mode   = localStorage.getItem('qm')||'manual';
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
 
-// ══ Settings ══════════════════════════════════════════
-function toggleSettings() {
-  const p = document.getElementById('settingsPanel');
-  const o = p.classList.toggle('open');
-  document.getElementById('gearBtn').classList.toggle('open', o);
+// ══ Settings ══════════════════════════════════
+function toggleSettings(){
+  const p=document.getElementById('sp');
+  const o=p.classList.toggle('open');
+  document.getElementById('gearBtn').classList.toggle('open',o);
 }
-function closeSettings() {
-  document.getElementById('settingsPanel').classList.remove('open');
+function closeSettings(){
+  document.getElementById('sp').classList.remove('open');
   document.getElementById('gearBtn').classList.remove('open');
 }
-function saveSettings() {
-  apiKey = document.getElementById('apiKey').value.trim();
-  localStorage.setItem('qk', apiKey);
-  localStorage.setItem('qmode', mode);
+function saveS(){
+  apiKey=document.getElementById('apiKey').value.trim();
+  localStorage.setItem('qk',apiKey);
+  localStorage.setItem('qm',mode);
   closeSettings();
 }
-document.addEventListener('click', e => {
-  const p = document.getElementById('settingsPanel');
-  const g = document.getElementById('gearBtn');
-  if (p.classList.contains('open') && !p.contains(e.target) && !g.contains(e.target)) closeSettings();
+document.addEventListener('click',e=>{
+  const p=document.getElementById('sp'),g=document.getElementById('gearBtn');
+  if(p.classList.contains('open')&&!p.contains(e.target)&&!g.contains(e.target))closeSettings();
 });
-function setMode(m) { mode = m; applyMode(m); }
-function applyMode(m) {
-  document.getElementById('mManual').classList.toggle('active', m === 'manual');
-  document.getElementById('mAuto').classList.toggle('active', m === 'auto');
+function setMode(m){mode=m;applyMode(m);}
+function applyMode(m){
+  document.getElementById('mM').classList.toggle('active',m==='manual');
+  document.getElementById('mA').classList.toggle('active',m==='auto');
+}
+function getLang(){return document.getElementById('lang').value||'ru';}
+
+// ══ Recording state ════════════════════════════
+let mediaRec=null,audioCtx=null;
+let allChunks=[],pendChunks=[];
+let recOn=false;
+let timerSec=0,timerIv=null,autoIv=null;
+let silTmr=null,wasSpeaking=false;
+let sliceStart=0;
+let mime='audio/mp4';
+
+// ══ Pace ═══════════════════════════════════════
+let samples=[];      // [{chars,ms}]
+let cpm=null;        // chars per ms, null = not calibrated
+let advTmr=null;     // pace-advance timer
+
+// ══ Window ═════════════════════════════════════
+// Each entry: {s,a} or null
+let win=[null,null,null]; // [prev, cur, nxt]
+
+// ══ Toggle rec ═════════════════════════════════
+async function toggleRec(){
+  recOn?(mode==='manual'?stopManual():stopLive()):startRec();
 }
 
-// ══ Recording ═════════════════════════════════════════
-async function toggleRec() {
-  recOn ? (mode === 'manual' ? stopManual() : stopLive()) : startRec();
-}
+async function startRec(){
+  if(!apiKey){alert('Введите API ключ в настройках ⚙️');return;}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
+    allChunks=[];pendChunks=[];win=[null,null,null];
+    samples=[];cpm=null;if(advTmr){clearTimeout(advTmr);advTmr=null;}
 
-async function startRec() {
-  if (!apiKey) { alert('Введите API ключ в настройках ⚙️'); return; }
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
-    });
-    allChunks = []; pendChunks = [];
-    ayahWindow = [null, null, null];
-    paceSamples = []; charsPerMs = null;
-    liveQueue = []; liveRunning = false;
-    if (nextPaceTimer) { clearTimeout(nextPaceTimer); nextPaceTimer = null; }
-
-    const m = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
-            : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
-    mime = m || 'audio/mp4';
-    mediaRec = new MediaRecorder(stream, m ? { mimeType: m } : {});
-    mediaRec.ondataavailable = e => {
-      if (e.data.size > 0) { allChunks.push(e.data); pendChunks.push(e.data); }
-    };
+    const m=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
+    mime=m||'audio/mp4';
+    mediaRec=new MediaRecorder(stream,m?{mimeType:m}:{});
+    mediaRec.ondataavailable=e=>{if(e.data.size>0){allChunks.push(e.data);pendChunks.push(e.data);}};
     mediaRec.start(100);
-    recOn = true;
-    sliceStart = Date.now();
-    pendingSliceStart = Date.now();
+    recOn=true;sliceStart=Date.now();
 
-    document.getElementById('micBtn').classList.add('on');
-    document.getElementById('idleWrap').style.display = 'flex';
-    document.getElementById('ayahStage').classList.remove('visible');
-    setIdle('Слушаем...', true);
+    document.getElementById('mic').classList.add('on');
+    setIdle('Слушаем...',true);
+    if(mode==='auto')document.getElementById('paceBar').classList.add('on');
 
-    timerSec = 0;
-    timerIv = setInterval(() => {
+    timerSec=0;
+    timerIv=setInterval(()=>{
       timerSec++;
-      const mm = String(Math.floor(timerSec/60)).padStart(2,'0');
-      const ss = String(timerSec%60).padStart(2,'0');
-      document.getElementById('timerEl').textContent = mm+':'+ss;
-    }, 1000);
+      document.getElementById('tmr').textContent=
+        String(Math.floor(timerSec/60)).padStart(2,'0')+':'+String(timerSec%60).padStart(2,'0');
+    },1000);
 
-    if (mode === 'auto') {
-      document.getElementById('paceBar').classList.add('visible');
-      startSilenceDetection(stream);
-    }
-  } catch(e) { alert('Микрофон недоступен: ' + e.message); }
+    if(mode==='auto')startSilence(stream);
+  }catch(e){alert('Микрофон: '+e.message);}
 }
 
-async function stopManual() {
-  recOn = false;
-  clearInterval(timerIv);
-  document.getElementById('timerEl').textContent = '';
-  if (mediaRec?.state !== 'inactive') { mediaRec.stop(); mediaRec.stream.getTracks().forEach(t=>t.stop()); }
-  document.getElementById('micBtn').classList.remove('on').toString();
-  document.getElementById('micBtn').classList.add('thinking');
-  setIdle('Распознаём...', false);
-
-  await new Promise(r => setTimeout(r, 350));
-  const ch = [...allChunks]; allChunks = [];
-  await processManual(ch);
-  document.getElementById('micBtn').classList.remove('thinking');
+async function stopManual(){
+  recOn=false;clearInterval(timerIv);
+  document.getElementById('tmr').textContent='';
+  if(mediaRec?.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
+  document.getElementById('mic').classList.remove('on');
+  document.getElementById('mic').classList.add('busy');
+  setIdle('Распознаём...',false);
+  await new Promise(r=>setTimeout(r,300));
+  const ch=[...allChunks];allChunks=[];
+  await doManual(ch);
+  document.getElementById('mic').classList.remove('busy');
 }
 
-function stopLive() {
-  recOn = false;
-  clearInterval(timerIv); clearInterval(autoIv);
-  if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-  if (nextPaceTimer) { clearTimeout(nextPaceTimer); nextPaceTimer = null; }
-  if (audioCtx) { audioCtx.close(); audioCtx = null; }
-  document.getElementById('timerEl').textContent = '';
-  if (mediaRec?.state !== 'inactive') { mediaRec.stop(); mediaRec.stream.getTracks().forEach(t=>t.stop()); }
-  document.getElementById('micBtn').classList.remove('on');
-  document.getElementById('paceBar').classList.remove('visible');
+function stopLive(){
+  recOn=false;clearInterval(timerIv);clearInterval(autoIv);
+  if(silTmr){clearTimeout(silTmr);silTmr=null;}
+  if(advTmr){clearTimeout(advTmr);advTmr=null;}
+  if(audioCtx){audioCtx.close();audioCtx=null;}
+  document.getElementById('tmr').textContent='';
+  if(mediaRec?.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
+  document.getElementById('mic').classList.remove('on');
+  document.getElementById('paceBar').classList.remove('on');
 }
 
-// ══ Silence detection ═════════════════════════════════
-const SILENCE_THR = 0.012;
-const SILENCE_DUR = 1100;  // ms of silence = ayah boundary
-const MIN_SLICE   = 1200;  // minimum slice length ms
+// ══ Silence detection ══════════════════════════
+const THR=0.012, SIL=1100, MINSL=1200;
 
-function startSilenceDetection(stream) {
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const src = audioCtx.createMediaStreamSource(stream);
-  const ana = audioCtx.createAnalyser();
-  ana.fftSize = 512;
-  src.connect(ana);
-  const buf = new Float32Array(ana.fftSize);
+function startSilence(stream){
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  const src=audioCtx.createMediaStreamSource(stream);
+  const ana=audioCtx.createAnalyser();ana.fftSize=512;src.connect(ana);
+  const buf=new Float32Array(ana.fftSize);
+  function rms(){ana.getFloatTimeDomainData(buf);let s=0;for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];return Math.sqrt(s/buf.length);}
 
-  function rms() {
-    ana.getFloatTimeDomainData(buf);
-    let s = 0; for (let i=0; i<buf.length; i++) s += buf[i]*buf[i];
-    return Math.sqrt(s/buf.length);
-  }
-
-  autoIv = setInterval(() => {
-    if (!recOn) return;
-    const speaking = rms() > SILENCE_THR;
-    if (speaking) {
-      wasSpeaking = true;
-      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-    } else if (wasSpeaking && !silenceTimer) {
-      silenceTimer = setTimeout(() => {
-        silenceTimer = null;
-        const elapsed = Date.now() - pendingSliceStart;
-        if (pendChunks.length > 0 && elapsed >= MIN_SLICE) {
-          const sliceDuration = elapsed;
-          const b = [...pendChunks]; pendChunks = [];
-          pendingSliceStart = Date.now();
-          wasSpeaking = false;
-          liveQueue.push({ chunks: b, duration: sliceDuration });
-          if (liveQueue.length > 5) liveQueue.shift();
-          runQueue();
+  autoIv=setInterval(()=>{
+    if(!recOn)return;
+    const spk=rms()>THR;
+    if(spk){wasSpeaking=true;if(silTmr){clearTimeout(silTmr);silTmr=null;}}
+    else if(wasSpeaking&&!silTmr){
+      silTmr=setTimeout(()=>{
+        silTmr=null;
+        const dur=Date.now()-sliceStart;
+        if(pendChunks.length>0&&dur>=MINSL){
+          const b=[...pendChunks];pendChunks=[];
+          const d=dur;sliceStart=Date.now();wasSpeaking=false;
+          doLive(b,d); // fire and forget — no queue needed, silence = natural gap
         }
-      }, SILENCE_DUR);
+      },SIL);
     }
-  }, 80);
+  },80);
 }
 
-// ══ Queue ══════════════════════════════════════════════
-async function runQueue() {
-  if (liveRunning) return;
-  liveRunning = true;
-  while (liveQueue.length > 0) {
-    const item = liveQueue.shift();
-    await processLive(item.chunks, item.duration);
-  }
-  liveRunning = false;
-}
+// ══ MANUAL MODE ═══════════════════════════════
+async function doManual(chunks){
+  if(!chunks.length)return;
+  try{
+    const blob=new Blob(chunks,{type:mime});
+    const fd=new FormData();
+    fd.append('file',blob,'a.'+(mime.includes('webm')?'webm':'mp4'));
+    fd.append('model','whisper-1');fd.append('language','ar');
+    fd.append('prompt','بسم الله الرحمن الرحيم قرآن كريم');
+    const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',{method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
+    if(!wr.ok)return;
+    const{text}=await wr.json();if(!text?.trim())return;
 
-// ══ MANUAL: find all ayahs ════════════════════════════
-async function processManual(chunks) {
-  if (!chunks.length) return;
-  try {
-    const blob = new Blob(chunks, { type: mime });
-    const fd = new FormData();
-    fd.append('file', blob, 'a.' + (mime.includes('webm')?'webm':'mp4'));
-    fd.append('model', 'whisper-1');
-    fd.append('language', 'ar');
-    fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
-
-    const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method:'POST', headers:{Authorization:'Bearer '+apiKey}, body:fd
+    const lg=getLang();
+    const gr=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
+      body:JSON.stringify({model:'gpt-4o',max_tokens:1000,messages:[{
+        role:'system',
+        content:`Quran expert. Identify ALL ayahs recited in order. For each return surah number, ayah number only.
+JSON array only: [{"s":78,"a":1},{"s":78,"a":2},...] — empty array if nothing.`
+      },{role:'user',content:'"'+text.trim()+'"'}]})
     });
-    if (!wr.ok) return;
-    const { text } = await wr.json();
-    if (!text?.trim()) return;
+    if(!gr.ok)return;
+    const raw=(await gr.json()).choices[0]?.message?.content||'';
+    let arr=[];try{arr=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{}
+    if(!Array.isArray(arr)||!arr.length)return;
 
-    const ln = getLang();
-    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model:'gpt-4o', max_tokens:3000,
-        messages:[{
-          role:'system',
-          content:`Quran expert. Identify ALL ayahs recited in order. Return COMPLETE full Arabic text for each.
-JSON array only, no markdown:
-[{"s":78,"a":1,"name":"An-Naba","arabic":"FULL TEXT","tr":"translation in ${ln}"},...]
-Empty array if nothing.`
-        },{role:'user',content:'"'+text.trim()+'"'}]
-      })
-    });
-    if (!gr.ok) return;
-    const raw = (await gr.json()).choices[0]?.message?.content||'';
-    let arr=[]; try{arr=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{}
-    if (!Array.isArray(arr)||!arr.length) return;
-
-    // Show as scrollable list (manual mode)
-    showManualResults(arr);
-  } catch(e){}
-  document.getElementById('micBtn').classList.remove('thinking');
+    // Render as scrollable list
+    showList(arr.map(x=>{const r=qGet(x.s,x.a);return qFmt(r,lg)||{s:x.s,a:x.a,name:'',arabic:'',tr:''}}));
+  }catch(e){}
+  document.getElementById('mic').classList.remove('busy');
 }
 
-function showManualResults(arr) {
-  // Re-use stage but show all in a scrollable list instead of 3-slot
-  const stage = document.getElementById('ayahStage');
-  const idle  = document.getElementById('idleWrap');
-  idle.style.display = 'none';
-
-  // Replace stage with a scrollable list for manual mode
-  let list = document.getElementById('manualList');
-  if (!list) {
-    list = document.createElement('div');
-    list.id = 'manualList';
-    list.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:28px;padding:12px 0 24px;';
-    stage.parentNode.insertBefore(list, stage);
-  }
-  list.innerHTML = '';
-  list.style.display = 'flex';
-  stage.classList.remove('visible');
-
-  arr.forEach((r,i) => {
-    setTimeout(() => {
-      const d = document.createElement('div');
-      d.style.cssText = i>0 ? 'border-top:1px solid #181818;padding-top:28px;' : '';
-      d.innerHTML = `
-        <div style="font-family:'Amiri',serif;font-size:clamp(1.2rem,3.5vw,1.8rem);line-height:1.9;direction:rtl;text-align:right;color:#f0f0f0;margin-bottom:8px">${r.arabic}</div>
-        <div style="font-size:clamp(0.82rem,1.8vw,0.95rem);line-height:1.65;color:#aaa;font-weight:300">${r.tr}</div>
-        <div style="margin-top:6px;font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:#2a2a2a">${r.name} · ${r.s}:${r.a}</div>
-      `;
+function showList(ayahs){
+  document.getElementById('idle').style.display='none';
+  document.getElementById('stage').classList.remove('on');
+  let list=document.getElementById('mlist');
+  if(!list){list=document.createElement('div');list.id='mlist';list.style.cssText='flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:24px;padding:8px 0 20px;';
+    document.getElementById('stage').parentNode.insertBefore(list,document.getElementById('stage'));}
+  list.innerHTML='';list.style.display='flex';
+  ayahs.forEach((r,i)=>{
+    setTimeout(()=>{
+      const d=document.createElement('div');
+      d.style.cssText=i>0?'border-top:1px solid #161616;padding-top:24px;':'';
+      d.innerHTML=`<div style="font-family:'Amiri',serif;font-size:clamp(1.1rem,3.4vw,1.75rem);line-height:1.9;direction:rtl;text-align:right;color:#f0f0f0;margin-bottom:6px">${r.arabic||''}</div>
+<div style="font-size:clamp(.76rem,1.7vw,.9rem);line-height:1.6;color:#999;font-weight:300">${r.tr||''}</div>
+<div style="margin-top:5px;font-size:.55rem;letter-spacing:.13em;text-transform:uppercase;color:#222">${r.name||''} · ${r.s}:${r.a}</div>`;
       list.appendChild(d);
-      setTimeout(()=>d.scrollIntoView({behavior:'smooth',block:'end'}),100);
-    }, i*120);
+      setTimeout(()=>d.scrollIntoView({behavior:'smooth',block:'end'}),80);
+    },i*130);
   });
 }
 
-// ══ LIVE: process one ayah slice ══════════════════════
-async function processLive(chunks, sliceDurationMs) {
-  if (!chunks.length) return;
-  try {
-    const blob = new Blob(chunks, { type: mime });
-    const fd = new FormData();
-    fd.append('file', blob, 'a.'+(mime.includes('webm')?'webm':'mp4'));
-    fd.append('model', 'whisper-1');
-    fd.append('language', 'ar');
-    fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
+// ══ LIVE MODE — zero API for navigation ════════
+let liveRunning=false;
 
-    const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method:'POST', headers:{Authorization:'Bearer '+apiKey}, body:fd
+async function doLive(chunks,durMs){
+  // Serialise: if previous still running, skip (silence gap ensures natural pacing)
+  if(liveRunning)return;
+  liveRunning=true;
+  try{
+    const blob=new Blob(chunks,{type:mime});
+    const fd=new FormData();
+    fd.append('file',blob,'a.'+(mime.includes('webm')?'webm':'mp4'));
+    fd.append('model','whisper-1');fd.append('language','ar');
+    fd.append('prompt','بسم الله الرحمن الرحيم قرآن كريم');
+    const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',{method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
+    if(!wr.ok){liveRunning=false;return;}
+    const{text}=await wr.json();
+    if(!text?.trim()){liveRunning=false;return;}
+
+    const lg=getLang();
+    const prevCur=win[1];
+    const ctx=prevCur?`Last confirmed: Surah ${prevCur.s} Ayah ${prevCur.a}.`:'';
+
+    const gr=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
+      body:JSON.stringify({model:'gpt-4o',max_tokens:200,messages:[{
+        role:'system',
+        content:`Quran expert. ${ctx} Identify single ayah being recited. Be generous with errors.
+Return ONLY: {"s":78,"a":1} — nothing else.`
+      },{role:'user',content:'"'+text.trim()+'"'}]})
     });
-    if (!wr.ok) return;
-    const { text } = await wr.json();
-    if (!text?.trim()) return;
-
-    const ln = getLang();
-    const prev = ayahWindow[1]; // current becomes prev after advance
-    const ctx  = prev ? `Previous ayah confirmed: Surah ${prev.s} (${prev.name}) Ayah ${prev.a}.` : '';
-
-    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model:'gpt-4o', max_tokens:900,
-        messages:[{
-          role:'system',
-          content:`Quran expert. ${ctx}
-Identify the ayah recited. Be very generous with errors.
-Return ONLY JSON, no markdown:
-{"s":78,"a":1,"name":"An-Naba","arabic":"COMPLETE FULL AYAH","tr":"translation in ${ln}"}`
-        },{role:'user',content:'"'+text.trim()+'"'}]
-      })
-    });
-    if (!gr.ok) return;
+    if(!gr.ok){liveRunning=false;return;}
     const raw=(await gr.json()).choices[0]?.message?.content||'';
-    let cur={};
-    try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{return;}
-    if (!cur.s) return;
+    let cur={};try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{liveRunning=false;return;}
+    if(!cur.s){liveRunning=false;return;}
 
-    // ── Pace calibration ───────────────────────────────
-    const charCount = (cur.arabic||'').replace(/\s/g,'').length;
-    if (charCount > 0 && sliceDurationMs > 500) {
-      paceSamples.push({ chars: charCount, ms: sliceDurationMs });
-      if (paceSamples.length >= 2) {
-        // Compute weighted average chars/ms
-        const totalChars = paceSamples.reduce((s,x)=>s+x.chars,0);
-        const totalMs    = paceSamples.reduce((s,x)=>s+x.ms,0);
-        charsPerMs = totalChars / totalMs;
-        updatePaceUI(true);
+    // Check if same as current — skip
+    if(win[1]&&win[1].s===cur.s&&win[1].a===cur.a){liveRunning=false;return;}
+
+    // Cancel pace timer
+    if(advTmr){clearTimeout(advTmr);advTmr=null;}
+
+    // ── Pace calibration ──────────────────────
+    const row=qGet(cur.s,cur.a);
+    const charCount=row?(row[3].replace(/\s/g,'').length):0;
+    if(charCount>0&&durMs>500){
+      samples.push({chars:charCount,ms:durMs});
+      if(samples.length>=2){
+        const tc=samples.reduce((s,x)=>s+x.chars,0);
+        const tm=samples.reduce((s,x)=>s+x.ms,0);
+        cpm=tc/tm;
+        document.getElementById('pd0').classList.add('on');
+        document.getElementById('pd1').classList.add('on');
+        document.getElementById('paceLbl').textContent='Темп: '+Math.round(cpm*1000)+' букв/сек';
+        document.getElementById('paceLbl').className='pace-lbl ok';
       } else {
-        updatePaceUI(false);
+        document.getElementById('pd0').classList.add('on');
+        document.getElementById('paceLbl').textContent='Калибровка (1/2)...';
       }
     }
 
-    // Skip if same ayah still
-    const curKey = cur.s+':'+cur.a;
-    if (ayahWindow[1] && ayahWindow[1].s+':'+ayahWindow[1].a === curKey) return;
+    // ── Update window ─────────────────────────
+    const prevRow=win[1]?qGet(win[1].s,win[1].a):null;
+    const nxtRaw=qNext(cur.s,cur.a);
 
-    // Cancel pending pace-advance timer (GPT confirmed before it fired)
-    if (nextPaceTimer) { clearTimeout(nextPaceTimer); nextPaceTimer = null; }
+    win=[
+      prevRow ? qFmt(prevRow,lg) : null,
+      qFmt(row,lg),
+      nxtRaw ? qFmt(nxtRaw,lg) : null
+    ];
+    renderWin();
 
-    // Fetch next ayah (background, non-blocking)
-    fetchOneNext(cur.s, cur.a, ln).then(nxt => {
-      // Update window: prev=old current, current=cur, next=nxt
-      const oldCur = ayahWindow[1];
-      ayahWindow = [oldCur, cur, nxt];
-      renderWindow();
+    // ── Schedule pace advance ─────────────────
+    if(cpm&&nxtRaw){
+      const nxtChars=(nxtRaw[3].replace(/\s/g,'').length);
+      const estMs=nxtChars/cpm;
+      advTmr=setTimeout(()=>paceAdvance(lg),estMs);
+    }
 
-      // Schedule pace-based auto-advance IF calibrated
-      schedulePaceAdvance(nxt, ln);
-    });
-
-  } catch(e){}
+  }catch(e){}
+  liveRunning=false;
 }
 
-// ══ Fetch one next ayah ════════════════════════════════
-async function fetchOneNext(s, a, ln) {
-  try {
-    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'gpt-4o', max_tokens:500,
-        messages:[{
-          role:'system',
-          content:`Return the single next Quran ayah after Surah ${s} Ayah ${a}.
-JSON only, no markdown:
-{"s":78,"a":2,"name":"An-Naba","arabic":"COMPLETE FULL TEXT","tr":"translation in ${ln}"}`
-        },{role:'user',content:'Next ayah after '+s+':'+a}]
-      })
-    });
-    if (!gr.ok) return null;
-    const raw=(await gr.json()).choices[0]?.message?.content||'';
-    const r=JSON.parse(raw.replace(/```json|```/g,'').trim());
-    return r.s ? r : null;
-  } catch{return null;}
-}
-
-// ══ Pace-based auto-advance ════════════════════════════
-function schedulePaceAdvance(nextAyah, ln) {
-  if (!nextAyah || !charsPerMs) return;
-
-  // Estimate how long the NEXT ayah will take
-  const chars = (nextAyah.arabic||'').replace(/\s/g,'').length;
-  const estimatedMs = chars / charsPerMs;
-
-  // Advance display when estimated time is up
-  nextPaceTimer = setTimeout(async () => {
-    nextPaceTimer = null;
-    if (!recOn) return;
-
-    // Shift window: prev=current, current=next, next=fetch new
-    const newPrev = ayahWindow[1];
-    const newCur  = ayahWindow[2];
-    if (!newCur) return;
-
-    ayahWindow = [newPrev, newCur, null];
-    renderWindow();
-
-    // Fetch the one after
-    const nxt = await fetchOneNext(newCur.s, newCur.a, ln);
-    ayahWindow[2] = nxt;
-    renderWindow();
-
-    // Schedule next advance
-    schedulePaceAdvance(nxt, ln);
-  }, estimatedMs);
-}
-
-// ══ Render 3-slot window ══════════════════════════════
-function renderWindow() {
-  const [prev, cur, nxt] = ayahWindow;
-
-  document.getElementById('idleWrap').style.display = 'none';
-  const ml = document.getElementById('manualList');
-  if (ml) ml.style.display = 'none';
-  document.getElementById('ayahStage').classList.add('visible');
-
-  fillSlot('prev', prev);
-  fillSlot('cur',  cur);
-  fillSlot('next', nxt);
-}
-
-function fillSlot(slot, ayah) {
-  const prefix = slot === 'cur' ? 'cur' : slot === 'prev' ? 'prev' : 'next';
-  document.getElementById(prefix+'Arabic').textContent = ayah ? ayah.arabic : '';
-  document.getElementById(prefix+'Trans').textContent  = ayah ? ayah.tr     : '';
-  document.getElementById(prefix+'Ref').textContent    = ayah ? (ayah.name+' · '+ayah.s+':'+ayah.a) : '';
-}
-
-// ══ Pace UI ════════════════════════════════════════════
-function updatePaceUI(calibrated) {
-  const bar   = document.getElementById('paceBar');
-  const label = document.getElementById('paceLabel');
-  document.getElementById('pd0').classList.toggle('active', paceSamples.length >= 1);
-  document.getElementById('pd1').classList.toggle('active', paceSamples.length >= 2);
-  if (calibrated) {
-    const cpm = Math.round(charsPerMs * 1000);
-    label.textContent = `Темп: ${cpm} букв/сек`;
-    label.className = 'pace-label calibrated';
-  } else {
-    label.textContent = `Калибровка... (${paceSamples.length}/2)`;
-    label.className = 'pace-label';
+function paceAdvance(lg){
+  advTmr=null;
+  if(!recOn||!win[2])return;
+  const newPrev=win[1];
+  const newCur=win[2];
+  const newNxtRaw=newCur?qNext(newCur.s,newCur.a):null;
+  win=[newPrev, newCur, newNxtRaw?qFmt(newNxtRaw,lg):null];
+  renderWin();
+  // Schedule next
+  if(cpm&&newNxtRaw){
+    const nc=(newNxtRaw[3].replace(/\s/g,'').length);
+    advTmr=setTimeout(()=>paceAdvance(lg),nc/cpm);
   }
 }
 
-// ══ Helpers ════════════════════════════════════════════
-function getLang() {
-  const m={ru:'Russian',en:'English',tr:'Turkish',uz:'Uzbek',kk:'Kazakh',tj:'Tajik',de:'German',fr:'French'};
-  return m[document.getElementById('langSelect').value]||'Russian';
+// ══ Render 3-slot ═════════════════════════════
+function renderWin(){
+  const ml=document.getElementById('mlist');if(ml)ml.style.display='none';
+  document.getElementById('idle').style.display='none';
+  document.getElementById('stage').classList.add('on');
+  fill('Prev',win[0]);fill('Cur',win[1]);fill('Nxt',win[2]);
 }
-function setIdle(label, live) {
-  document.getElementById('idleText').textContent = label;
-  document.getElementById('idleDots').classList.toggle('live', live);
+function fill(slot,ayah){
+  document.getElementById('ar'+slot).textContent=ayah?ayah.arabic:'';
+  document.getElementById('tr'+slot).textContent=ayah?ayah.tr:'';
+  document.getElementById('rf'+slot).textContent=ayah?(ayah.name+' · '+ayah.s+':'+ayah.a):'';
+}
+
+// ══ Idle ══════════════════════════════════════
+function setIdle(label,live){
+  document.getElementById('idleLbl').textContent=label;
+  document.getElementById('dots').classList.toggle('on',live);
 }
 </script>
 
