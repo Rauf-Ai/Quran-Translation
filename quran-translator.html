@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quran Live Translator</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --gold-dim: #8a6f32;
+    --deep: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #22222f;
+    --text: #f0ead8;
+    --text-dim: #8a8070;
+    --green: #4caf6e;
+    --red: #cf6679;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--deep);
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background geometric pattern */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201,168,76,0.08) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cpath d='M30 0 L60 30 L30 60 L0 30 Z' fill='none' stroke='rgba(201,168,76,0.04)' stroke-width='0.5'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .logo-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .logo-icon svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 12px rgba(201,168,76,0.4));
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  h1 span {
+    color: var(--gold);
+    font-style: italic;
+    font-weight: 600;
+  }
+
+  .subtitle {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    letter-spacing: 0.08em;
+    font-weight: 300;
+  }
+
+  /* Decorative divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 28px 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold-dim));
+  }
+  .divider::after { background: linear-gradient(to left, transparent, var(--gold-dim)); }
+  .divider span { color: var(--gold); font-size: 1.2rem; }
+
+  /* API Key section */
+  .api-section {
+    background: var(--surface);
+    border: 1px solid rgba(201,168,76,0.15);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .api-section label {
+    display: block;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  .api-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  input[type="password"], input[type="text"], select {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--gold);
+  }
+
+  select option { background: var(--surface2); }
+
+  .btn-save {
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: var(--deep);
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+
+  .btn-save:hover { opacity: 0.85; }
+
+  /* Language selector */
+  .lang-section {
+    margin-bottom: 24px;
+  }
+
+  .lang-section label {
+    display: block;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  /* Main recording area */
+  .recorder {
+    background: var(--surface);
+    border: 1px solid rgba(201,168,76,0.12);
+    border-radius: 16px;
+    padding: 40px 30px;
+    text-align: center;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .recorder::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse at center, rgba(201,168,76,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  /* Mic button */
+  .mic-btn {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 2px solid rgba(201,168,76,0.4);
+    background: var(--surface2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 24px;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .mic-btn svg {
+    width: 40px;
+    height: 40px;
+    fill: var(--gold);
+    transition: fill 0.3s;
+  }
+
+  .mic-btn:hover {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.08);
+  }
+
+  .mic-btn.recording {
+    border-color: var(--red);
+    background: rgba(207,102,121,0.1);
+    animation: pulse-ring 1.5s ease-out infinite;
+  }
+
+  .mic-btn.recording svg { fill: var(--red); }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(207,102,121,0.4); }
+    70% { box-shadow: 0 0 0 20px rgba(207,102,121,0); }
+    100% { box-shadow: 0 0 0 0 rgba(207,102,121,0); }
+  }
+
+  .mic-btn.processing {
+    border-color: var(--gold);
+    animation: pulse-gold 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-gold {
+    from { box-shadow: 0 0 0 0 rgba(201,168,76,0.3); }
+    to { box-shadow: 0 0 0 15px rgba(201,168,76,0); }
+  }
+
+  .rec-status {
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    height: 20px;
+  }
+
+  .rec-status.active { color: var(--red); }
+  .rec-status.processing { color: var(--gold); }
+
+  /* Timer */
+  .timer {
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 20px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Waveform */
+  .waveform {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    margin-bottom: 24px;
+  }
+
+  .wave-bar {
+    width: 3px;
+    background: var(--gold-dim);
+    border-radius: 2px;
+    height: 4px;
+    transition: height 0.1s ease;
+  }
+
+  .recording .wave-bar {
+    animation: wave-anim 0.8s ease-in-out infinite alternate;
+    background: var(--red);
+  }
+
+  @keyframes wave-anim {
+    from { height: 4px; }
+    to { height: 40px; }
+  }
+
+  .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+  .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+  .wave-bar:nth-child(4) { animation-delay: 0.05s; }
+  .wave-bar:nth-child(5) { animation-delay: 0.15s; }
+  .wave-bar:nth-child(6) { animation-delay: 0.25s; }
+  .wave-bar:nth-child(7) { animation-delay: 0.08s; }
+  .wave-bar:nth-child(8) { animation-delay: 0.18s; }
+  .wave-bar:nth-child(9) { animation-delay: 0.12s; }
+  .wave-bar:nth-child(10) { animation-delay: 0.22s; }
+
+  .hint-text {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  /* Action buttons */
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  .btn {
+    padding: 12px 28px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: var(--deep);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid rgba(201,168,76,0.4);
+  }
+
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Results */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 16px;
+    padding: 30px;
+    margin-bottom: 16px;
+    animation: fadeUp 0.4s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .ayah-ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 20px;
+  }
+
+  .confidence-badge {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    background: var(--surface2);
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .arabic-text {
+    font-family: 'Amiri', serif;
+    font-size: 2rem;
+    line-height: 1.8;
+    text-align: right;
+    direction: rtl;
+    color: var(--text);
+    margin-bottom: 20px;
+    padding: 20px;
+    background: var(--surface2);
+    border-radius: 10px;
+    border-right: 3px solid var(--gold-dim);
+  }
+
+  .translation-text {
+    font-size: 1.15rem;
+    line-height: 1.7;
+    color: var(--text);
+    font-style: italic;
+    font-weight: 300;
+    padding: 16px 0;
+    border-top: 1px solid rgba(201,168,76,0.1);
+  }
+
+  .recognized-text {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    font-family: 'Amiri', serif;
+    direction: rtl;
+    text-align: right;
+  }
+
+  .recognized-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    direction: ltr;
+    text-align: left;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* Status messages */
+  .status-msg {
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    display: none;
+  }
+
+  .status-msg.error {
+    background: rgba(207,102,121,0.1);
+    border: 1px solid rgba(207,102,121,0.3);
+    color: #e08090;
+    display: block;
+  }
+
+  .status-msg.info {
+    background: rgba(201,168,76,0.08);
+    border: 1px solid rgba(201,168,76,0.2);
+    color: var(--gold-light);
+    display: block;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    margin-top: 40px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    opacity: 0.5;
+  }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    background: var(--surface2);
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .mode-btn.active {
+    background: var(--surface3);
+    color: var(--gold);
+    border: 1px solid rgba(201,168,76,0.2);
+  }
+
+  /* Continuous mode indicator */
+  .continuous-indicator {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--green);
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .continuous-indicator.active { display: flex; }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 1s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .results-history {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  @media (max-width: 500px) {
+    h1 { font-size: 1.5rem; }
+    .arabic-text { font-size: 1.6rem; }
+    .container { padding: 24px 16px 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo-icon">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M32 4 L60 18 L60 46 L32 60 L4 46 L4 18 Z" stroke="#c9a84c" stroke-width="1.5" fill="rgba(201,168,76,0.05)"/>
+        <path d="M32 14 L50 23 L50 41 L32 50 L14 41 L14 23 Z" stroke="#c9a84c" stroke-width="0.8" fill="rgba(201,168,76,0.05)" stroke-dasharray="3,2"/>
+        <circle cx="32" cy="32" r="8" stroke="#c9a84c" stroke-width="1" fill="rgba(201,168,76,0.1)"/>
+        <path d="M28 32 Q32 26 36 32 Q32 38 28 32Z" fill="#c9a84c" opacity="0.8"/>
+      </svg>
+    </div>
+    <h1>Quran <span>Live</span></h1>
+    <p class="subtitle">Распознавание и перевод аятов в реальном времени</p>
+  </header>
+
+  <div class="divider"><span>✦</span></div>
+
+  <!-- API Key -->
+  <div class="api-section">
+    <label>🔑 OpenAI API Key</label>
+    <div class="api-row">
+      <input type="password" id="apiKey" placeholder="sk-..." />
+      <button class="btn-save" onclick="saveKey()">Сохранить</button>
+    </div>
+  </div>
+
+  <!-- Language -->
+  <div class="lang-section">
+    <label>🌍 Язык перевода</label>
+    <select id="langSelect">
+      <option value="ru">🇷🇺 Русский</option>
+      <option value="en">🇬🇧 English</option>
+      <option value="tr">🇹🇷 Türkçe</option>
+      <option value="de">🇩🇪 Deutsch</option>
+      <option value="fr">🇫🇷 Français</option>
+      <option value="ar">🇸🇦 العربية (оригинал)</option>
+      <option value="uz">🇺🇿 O'zbekcha</option>
+      <option value="kk">🇰🇿 Қазақша</option>
+      <option value="tj">🇹🇯 Тоҷикӣ</option>
+    </select>
+  </div>
+
+  <!-- Mode Toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" onclick="setMode('manual')" id="manualBtn">Ручной режим</button>
+    <button class="mode-btn" onclick="setMode('continuous')" id="continuousBtn">Авто (каждые 8с)</button>
+  </div>
+
+  <div id="statusMsg" class="status-msg"></div>
+
+  <!-- Recorder -->
+  <div class="recorder" id="recorderEl">
+    <div class="continuous-indicator" id="continuousInd">
+      <div class="dot"></div>
+      Непрерывное прослушивание
+    </div>
+
+    <button class="mic-btn" id="micBtn" onclick="toggleRecording()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/>
+      </svg>
+    </button>
+
+    <div class="rec-status" id="recStatus">Нажмите для записи</div>
+
+    <div class="timer" id="timer"></div>
+
+    <div class="waveform" id="waveform">
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+    </div>
+
+    <p class="hint-text" id="hintText">Положите телефон и начните запись чтения Корана</p>
+
+    <div class="btn-row" id="btnRow" style="display:none">
+      <button class="btn btn-primary" onclick="processRecording()">🔍 Найти аят</button>
+      <button class="btn btn-secondary" onclick="cancelRecording()">Отмена</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" class="results-history"></div>
+
+  <footer>
+    <p>Использует OpenAI Whisper для распознавания арабской речи</p>
+    <p style="margin-top:4px">Переводы через GPT-4o · Ваш API ключ хранится локально</p>
+  </footer>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingInterval = null;
+let timerInterval = null;
+let timerSeconds = 0;
+let isRecording = false;
+let currentMode = 'manual';
+let continuousTimer = null;
+let apiKey = localStorage.getItem('quran_api_key') || '';
+
+// ── Init ──────────────────────────────────────────
+document.getElementById('apiKey').value = apiKey;
+
+function saveKey() {
+  apiKey = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('quran_api_key', apiKey);
+  showStatus('API ключ сохранён ✓', 'info');
+  setTimeout(() => hideStatus(), 2000);
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('manualBtn').classList.toggle('active', mode === 'manual');
+  document.getElementById('continuousBtn').classList.toggle('active', mode === 'continuous');
+
+  if (mode === 'continuous') {
+    showStatus('В авто-режиме запись делается каждые 8 секунд автоматически', 'info');
+  } else {
+    hideStatus();
+  }
+}
+
+// ── Recording ──────────────────────────────────────
+async function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  if (!apiKey) {
+    showStatus('Введите и сохраните OpenAI API ключ', 'error');
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      audio: { 
+        sampleRate: 16000,
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true
+      } 
+    });
+
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.start(100);
+    isRecording = true;
+
+    // UI
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('recStatus').textContent = '● Идёт запись...';
+    document.getElementById('recStatus').className = 'rec-status active';
+    document.getElementById('hintText').textContent = 'Запись идёт... Нажмите снова чтобы остановить';
+    document.getElementById('waveform').classList.add('recording');
+
+    if (currentMode === 'manual') {
+      document.getElementById('btnRow').style.display = 'none';
+    }
+
+    // Timer
+    timerSeconds = 0;
+    updateTimer();
+    timerInterval = setInterval(updateTimer, 1000);
+
+    // Continuous mode
+    if (currentMode === 'continuous') {
+      document.getElementById('continuousInd').classList.add('active');
+      continuousTimer = setInterval(() => {
+        if (isRecording) autoProcess();
+      }, 8000);
+    }
+
+  } catch (err) {
+    showStatus('Не удалось получить доступ к микрофону: ' + err.message, 'error');
+  }
+}
+
+function stopRecording() {
+  if (!mediaRecorder) return;
+
+  isRecording = false;
+  clearInterval(timerInterval);
+  clearInterval(continuousTimer);
+
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('waveform').classList.remove('recording');
+  document.getElementById('continuousInd').classList.remove('active');
+
+  if (currentMode === 'manual') {
+    document.getElementById('recStatus').textContent = 'Запись остановлена';
+    document.getElementById('recStatus').className = 'rec-status';
+    document.getElementById('hintText').textContent = 'Нажмите "Найти аят" для распознавания';
+    document.getElementById('btnRow').style.display = 'flex';
+  }
+}
+
+function cancelRecording() {
+  audioChunks = [];
+  document.getElementById('btnRow').style.display = 'none';
+  document.getElementById('recStatus').textContent = 'Нажмите для записи';
+  document.getElementById('recStatus').className = 'rec-status';
+  document.getElementById('timer').textContent = '';
+  document.getElementById('hintText').textContent = 'Положите телефон и начните запись чтения Корана';
+}
+
+function updateTimer() {
+  const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+  const s = (timerSeconds % 60).toString().padStart(2, '0');
+  document.getElementById('timer').textContent = `${m}:${s}`;
+  timerSeconds++;
+}
+
+// ── Auto process (continuous mode) ────────────────
+async function autoProcess() {
+  if (audioChunks.length === 0) return;
+  const chunksToProcess = [...audioChunks];
+  audioChunks = [];
+  await processAudio(chunksToProcess);
+}
+
+async function processRecording() {
+  stopRecording();
+  await new Promise(r => setTimeout(r, 300));
+  await processAudio([...audioChunks]);
+  audioChunks = [];
+  document.getElementById('btnRow').style.display = 'none';
+  document.getElementById('recStatus').textContent = 'Нажмите для записи';
+  document.getElementById('recStatus').className = 'rec-status';
+  document.getElementById('timer').textContent = '';
+}
+
+// ── Main processing ────────────────────────────────
+async function processAudio(chunks) {
+  if (chunks.length === 0) {
+    showStatus('Запись пустая — попробуйте ещё раз', 'error');
+    return;
+  }
+
+  // Processing state
+  document.getElementById('micBtn').classList.add('processing');
+  document.getElementById('recStatus').textContent = '◌ Распознавание...';
+  document.getElementById('recStatus').className = 'rec-status processing';
+  document.getElementById('hintText').textContent = 'Анализируем арабскую речь...';
+  hideStatus();
+
+  try {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+
+    // Step 1: Whisper transcription
+    const formData = new FormData();
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'ar');
+    formData.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
+
+    document.getElementById('hintText').textContent = 'Whisper распознаёт арабский текст...';
+
+    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      body: formData
+    });
+
+    if (!whisperRes.ok) {
+      const err = await whisperRes.json();
+      throw new Error(err.error?.message || 'Ошибка Whisper API');
+    }
+
+    const whisperData = await whisperRes.json();
+    const arabicText = whisperData.text?.trim();
+
+    if (!arabicText) {
+      showStatus('Речь не распознана. Говорите громче или ближе к микрофону.', 'error');
+      resetMicState();
+      return;
+    }
+
+    document.getElementById('hintText').textContent = 'Ищем аят и переводим...';
+
+    // Step 2: Find ayah + translate
+    const lang = document.getElementById('langSelect').value;
+    const langNames = {
+      ru: 'русский', en: 'English', tr: 'Türkçe', de: 'Deutsch',
+      fr: 'Français', ar: 'арабский (оригинал)', uz: "O'zbek", kk: 'Қазақ', tj: 'Тоҷикӣ'
+    };
+
+    const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 600,
+        messages: [{
+          role: 'system',
+          content: `You are a Quran expert. Given Arabic text (possibly imperfect transcription from speech), identify the closest matching Quran verse and provide translation.
+          
+Respond ONLY with valid JSON in this exact format:
+{
+  "found": true,
+  "surah_number": 1,
+  "surah_name": "Аль-Фатиха",
+  "ayah_number": 1,
+  "arabic": "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+  "translation": "translation in ${langNames[lang]}",
+  "confidence": "high"
+}
+
+If no Quran verse found, return: {"found": false, "message": "reason in ${langNames[lang]}"}`
+        }, {
+          role: 'user',
+          content: `Transcribed Arabic: "${arabicText}"\nFind the Quran verse and translate to ${langNames[lang]}.`
+        }]
+      })
+    });
+
+    if (!gptRes.ok) {
+      const err = await gptRes.json();
+      throw new Error(err.error?.message || 'Ошибка GPT API');
+    }
+
+    const gptData = await gptRes.json();
+    const rawContent = gptData.choices[0]?.message?.content || '{}';
+    
+    let result;
+    try {
+      result = JSON.parse(rawContent.replace(/```json|```/g, '').trim());
+    } catch {
+      throw new Error('Не удалось разобрать ответ от GPT');
+    }
+
+    // Render result
+    renderResult(result, arabicText);
+
+  } catch (err) {
+    showStatus('Ошибка: ' + err.message, 'error');
+  }
+
+  resetMicState();
+}
+
+function renderResult(result, recognizedText) {
+  const container = document.getElementById('results');
+
+  const card = document.createElement('div');
+  card.className = 'result-card';
+
+  if (!result.found) {
+    card.innerHTML = `
+      <div class="ayah-ref">⚠ Аят не найден</div>
+      <p style="color:var(--text-dim); font-style:italic">${result.message || 'Попробуйте записать более чётко'}</p>
+      <div class="recognized-text">
+        <span class="recognized-label">Распознанный текст</span>
+        ${recognizedText}
+      </div>
+    `;
+  } else {
+    const confColor = result.confidence === 'high' ? 'var(--green)' : 'var(--gold)';
+    card.innerHTML = `
+      <div class="ayah-ref">
+        Сура ${result.surah_number} · Аят ${result.ayah_number} · ${result.surah_name}
+        <span class="confidence-badge" style="color:${confColor}">${result.confidence === 'high' ? '✓ высокая' : '~ средняя'}</span>
+      </div>
+      <div class="arabic-text">${result.arabic}</div>
+      <div class="translation-text">${result.translation}</div>
+      <div class="recognized-text">
+        <span class="recognized-label">Распознанный текст (Whisper)</span>
+        ${recognizedText}
+      </div>
+    `;
+  }
+
+  // Prepend (newest first)
+  container.insertBefore(card, container.firstChild);
+
+  // Limit to 5 cards
+  while (container.children.length > 5) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+function resetMicState() {
+  document.getElementById('micBtn').classList.remove('processing');
+  if (!isRecording) {
+    document.getElementById('recStatus').textContent = 'Нажмите для новой записи';
+    document.getElementById('recStatus').className = 'rec-status';
+    document.getElementById('hintText').textContent = 'Положите телефон и начните запись чтения Корана';
+  }
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = `status-msg ${type}`;
+}
+
+function hideStatus() {
+  document.getElementById('statusMsg').className = 'status-msg';
+}
+</script>
+</body>
+</html>
