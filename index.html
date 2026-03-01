@@ -84,7 +84,7 @@ background: #161616;
 border: 1px solid #242424;
 border-radius: 14px;
 padding: 18px;
-z-index: 300;
+z-index: 400;
 display: none;
 box-shadow: 0 20px 60px rgba(0,0,0,0.95);
 }
@@ -284,8 +284,8 @@ font-variant-numeric: tabular-nums;
 text-align: center;
 }
 
-/* Overlay */
-.overlay { display:none; position:fixed; inset:0; z-index:200; }
+/* Overlay — MUST be below settings panel (z-index 299 < 300) */
+.overlay { display:none; position:fixed; inset:0; z-index:299; }
 .overlay.open { display:block; }
 </style>
 
@@ -328,8 +328,8 @@ text-align: center;
 
       <span class="s-label">Режим</span>
       <div class="mode-toggle">
-        <button class="mode-btn active" id="mManual" onclick="setMode('manual')">Ручной</button>
-        <button class="mode-btn" id="mAuto" onclick="setMode('auto')">Авто</button>
+        <button class="mode-btn active" id="mManual" onclick="setMode('manual')">Поиск аята</button>
+        <button class="mode-btn" id="mAuto" onclick="setMode('auto')">Live</button>
       </div>
 
       <button class="btn-save" onclick="saveSettings()">Сохранить</button>
