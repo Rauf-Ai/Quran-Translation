@@ -285,14 +285,11 @@ text-align: center;
 }
 
 /* Overlay — MUST be below settings panel (z-index 299 < 300) */
-.overlay { display:none; position:fixed; inset:0; z-index:299; }
-.overlay.open { display:block; }
+.overlay { display:none; }
 </style>
 
 </head>
 <body>
-
-<div class="overlay" id="overlay" onclick="closeSettings()"></div>
 
 <div class="app">
 
@@ -384,13 +381,12 @@ applyMode(mode);
 
 // ── Settings ─────────────────────────────────────────
 function toggleSettings() {
-  const open = document.getElementById('settingsPanel').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('open', open);
-  document.getElementById('gearBtn').classList.toggle('open', open);
+  const panel = document.getElementById('settingsPanel');
+  const isOpen = panel.classList.toggle('open');
+  document.getElementById('gearBtn').classList.toggle('open', isOpen);
 }
 function closeSettings() {
   document.getElementById('settingsPanel').classList.remove('open');
-  document.getElementById('overlay').classList.remove('open');
   document.getElementById('gearBtn').classList.remove('open');
 }
 function saveSettings() {
@@ -399,6 +395,15 @@ function saveSettings() {
   localStorage.setItem('qmode', mode);
   closeSettings();
 }
+
+// Close settings when tapping outside
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('settingsPanel');
+  const gear  = document.getElementById('gearBtn');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && !gear.contains(e.target)) {
+    closeSettings();
+  }
+});
 function setMode(m) {
   mode = m;
   applyMode(m);
