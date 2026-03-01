@@ -197,6 +197,11 @@ text-transform: uppercase;
 color: #2e2e2e;
 }
 
+/* Predicted (next) ayah — dimmed */
+.ayah-block.predicted .arabic-line { color: #444; }
+.ayah-block.predicted .trans-line  { color: #333; }
+.ayah-block.predicted .ref-line    { color: #222; }
+
 /* divider between ayahs */
 .ayah-block + .ayah-block {
 border-top: 1px solid #1a1a1a;
@@ -372,10 +377,13 @@ let mediaRec = null;
 let allChunks = [], pendChunks = [];
 let recOn = false, procOn = false;
 let timerSec = 0, timerIv = null, autoIv = null;
-let lastRef = null;
 let mime = 'audio/mp4';
 
-// init
+// Live mode state
+let shownAyahs = [];        // [{s, a}] all shown so far this session
+let lastConfirmed = null;   // last GPT-confirmed {s, a, name}
+let predictedBlock = null;  // DOM element of the predicted (dim) next ayah
+
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
 
@@ -395,8 +403,6 @@ function saveSettings() {
   localStorage.setItem('qmode', mode);
   closeSettings();
 }
-
-// Close settings when tapping outside
 document.addEventListener('click', function(e) {
   const panel = document.getElementById('settingsPanel');
   const gear  = document.getElementById('gearBtn');
@@ -404,10 +410,7 @@ document.addEventListener('click', function(e) {
     closeSettings();
   }
 });
-function setMode(m) {
-  mode = m;
-  applyMode(m);
-}
+function setMode(m) { mode = m; applyMode(m); }
 function applyMode(m) {
   document.getElementById('mManual').classList.toggle('active', m === 'manual');
   document.getElementById('mAuto').classList.toggle('active', m === 'auto');
@@ -416,7 +419,7 @@ function applyMode(m) {
 // ── Recording ─────────────────────────────────────────
 async function toggleRec() {
   if (recOn) {
-    mode === 'manual' ? await stopProcess() : stopStream();
+    mode === 'manual' ? await stopManual() : stopLive();
   } else {
     await startRec();
   }
@@ -428,7 +431,9 @@ async function startRec() {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
     });
-    allChunks = []; pendChunks = []; lastRef = null;
+    allChunks = []; pendChunks = [];
+    shownAyahs = []; lastConfirmed = null; predictedBlock = null;
+
     const m = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
             : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
     mime = m || 'audio/mp4';
@@ -451,17 +456,18 @@ async function startRec() {
     }, 1000);
 
     if (mode === 'auto') {
+      // First slice after 4s, then every 4s — keeps up with recitation pace
       autoIv = setInterval(() => {
-        if (!procOn && pendChunks.length > 0) {
+        if (pendChunks.length > 0 && !procOn) {
           const b = [...pendChunks]; pendChunks = [];
-          processAudio(b, false);
+          processLive(b);
         }
-      }, 5000);
+      }, 4000);
     }
   } catch(e) { alert('Микрофон недоступен: ' + e.message); }
 }
 
-async function stopProcess() {
+async function stopManual() {
   recOn = false;
   clearInterval(timerIv); clearInterval(autoIv);
   document.getElementById('timerEl').textContent = '';
@@ -474,12 +480,12 @@ async function stopProcess() {
 
   await new Promise(r => setTimeout(r, 350));
   const ch = [...allChunks]; allChunks = [];
-  await processAudio(ch, true); // true = manual (return ALL ayahs)
+  await processManual(ch);
   document.getElementById('micBtn').classList.remove('thinking');
   if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
 }
 
-function stopStream() {
+function stopLive() {
   recOn = false;
   clearInterval(timerIv); clearInterval(autoIv);
   document.getElementById('timerEl').textContent = '';
@@ -490,16 +496,15 @@ function stopStream() {
   if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
 }
 
-// ── Process ───────────────────────────────────────────
-async function processAudio(chunks, isManual) {
-  if (!chunks.length || procOn) return;
+// ── MANUAL MODE: transcribe everything, return all ayahs ──
+async function processManual(chunks) {
+  if (!chunks.length) return;
   procOn = true;
 
   try {
-    const ext  = mime.includes('webm') ? 'webm' : 'mp4';
     const blob = new Blob(chunks, { type: mime });
-    const fd   = new FormData();
-    fd.append('file', blob, 'a.' + ext);
+    const fd = new FormData();
+    fd.append('file', blob, 'a.' + (mime.includes('webm') ? 'webm' : 'mp4'));
     fd.append('model', 'whisper-1');
     fd.append('language', 'ar');
     fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
@@ -507,112 +512,166 @@ async function processAudio(chunks, isManual) {
     const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: fd
     });
-    if (!wr.ok) { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
-
+    if (!wr.ok) { procOn = false; return; }
     const { text } = await wr.json();
-    if (!text?.trim()) { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
+    if (!text?.trim()) { procOn = false; return; }
 
-    const lang = document.getElementById('langSelect').value;
-    const lm = { ru:'Russian', en:'English', tr:'Turkish', uz:'Uzbek', kk:'Kazakh', tj:'Tajik', de:'German', fr:'French' };
-    const ln = lm[lang] || 'Russian';
-    const ctx = lastRef ? `Previous ayah: Surah ${lastRef.s} Ayah ${lastRef.a}. Next likely nearby.` : '';
-
-    // Manual: ask for ALL ayahs in the recording; Auto: single best match
-    const systemPrompt = isManual
-      ? `You are a Quran expert. The user recorded multiple ayahs being recited.
-Identify ALL Quran ayahs present in the transcription (could be 1 to 10+).
-Return COMPLETE full text for each ayah even if only partially heard.
-${ctx}
-Respond ONLY with JSON array (no markdown):
-[{"s":2,"a":255,"name":"Al-Baqarah","arabic":"FULL AYAH TEXT","tr":"translation in ${ln}"},...]
-If nothing matches: []`
-      : `You are a Quran expert. Find the single best matching Quran ayah for this transcription.
-Return COMPLETE full ayah text always, even if only part was heard.
-${ctx}
-Respond ONLY with JSON (no markdown):
-{"found":true,"s":2,"a":255,"name":"Al-Baqarah","arabic":"FULL AYAH","tr":"translation in ${ln}"}
-If no match: {"found":false}`;
-
+    const ln = getLang();
     const gr = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o', max_tokens: isManual ? 2000 : 600,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Transcription: "' + text.trim() + '"' }
-        ]
+        model: 'gpt-4o', max_tokens: 3000,
+        messages: [{
+          role: 'system',
+          content: `Quran expert. User recited multiple ayahs. Identify ALL of them in order.
+Return COMPLETE full Arabic text for every ayah, even if only partially heard.
+Be generous with errors and partial text.
+Respond ONLY with JSON array, no markdown:
+[{"s":67,"a":1,"name":"Al-Mulk","arabic":"FULL TEXT","tr":"translation in ${ln}"},...]
+If nothing: []`
+        }, {
+          role: 'user', content: 'Transcription: "' + text.trim() + '"'
+        }]
       })
     });
-    if (!gr.ok) { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
+    if (!gr.ok) { procOn = false; return; }
 
-    const gd  = await gr.json();
-    const raw = (gd.choices[0]?.message?.content || '').replace(/```json|```/g,'').trim();
+    const raw = (await gr.json()).choices[0]?.message?.content || '';
+    let arr = [];
+    try { arr = JSON.parse(raw.replace(/```json|```/g,'').trim()); } catch {}
 
-    if (isManual) {
-      // Expect array
-      let arr = [];
-      try { arr = JSON.parse(raw); } catch { /* silent */ }
-      if (Array.isArray(arr) && arr.length > 0) {
-        // Clear and show all
-        clearAyahs();
-        arr.forEach((r, i) => {
-          setTimeout(() => addAyahBlock(r), i * 120);
-        });
-        if (arr.length > 0) lastRef = { s: arr[arr.length-1].s, a: arr[arr.length-1].a };
-      }
-    } else {
-      // Single ayah auto mode
-      let res = {};
-      try { res = JSON.parse(raw); } catch { /* silent */ }
-      if (res.found) {
-        const ref = res.s + ':' + res.a;
-        if (lastRef && lastRef.s+':'+lastRef.a === ref) {
-          // Same ayah — skip
-        } else {
-          lastRef = { s: res.s, a: res.a };
-          clearAyahs();
-          addAyahBlock(res);
-        }
+    if (Array.isArray(arr) && arr.length > 0) {
+      clearAyahs();
+      arr.forEach((r, i) => setTimeout(() => addAyahBlock(r, false), i * 150));
+    }
+  } catch(e) {}
+  procOn = false;
+}
+
+// ── LIVE MODE: process 4s slices, show confirmed + predict next ──
+async function processLive(chunks) {
+  if (!chunks.length) return;
+  procOn = true;
+
+  try {
+    const blob = new Blob(chunks, { type: mime });
+    const fd = new FormData();
+    fd.append('file', blob, 'a.' + (mime.includes('webm') ? 'webm' : 'mp4'));
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'ar');
+    fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
+
+    const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: fd
+    });
+    if (!wr.ok) { procOn = false; return; }
+    const { text } = await wr.json();
+    if (!text?.trim()) { procOn = false; return; }
+
+    const ln = getLang();
+    const ctx = lastConfirmed
+      ? `Last confirmed ayah: Surah ${lastConfirmed.s} (${lastConfirmed.name}) Ayah ${lastConfirmed.a}.`
+      : '';
+
+    // Ask GPT: which ayah(s) are in this 4s slice + what comes NEXT
+    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o', max_tokens: 1200,
+        messages: [{
+          role: 'system',
+          content: `Quran expert. This is a 4-second audio slice of live Quran recitation.
+${ctx}
+Tasks:
+1. Identify the ayah(s) being recited in this slice (return ALL if multiple)
+2. Return the NEXT ayah after the last identified one (for prediction)
+
+Return ONLY JSON, no markdown:
+{
+  "current": [{"s":67,"a":1,"name":"Al-Mulk","arabic":"FULL AYAH","tr":"in ${ln}"}],
+  "next": {"s":67,"a":2,"name":"Al-Mulk","arabic":"FULL AYAH","tr":"in ${ln}"}
+}
+If nothing recognized: {"current":[],"next":null}`
+        }, {
+          role: 'user', content: 'Slice transcription: "' + text.trim() + '"'
+        }]
+      })
+    });
+    if (!gr.ok) { procOn = false; return; }
+
+    const raw = (await gr.json()).choices[0]?.message?.content || '';
+    let res = {};
+    try { res = JSON.parse(raw.replace(/```json|```/g,'').trim()); } catch {}
+
+    const current = Array.isArray(res.current) ? res.current : [];
+    const next    = res.next || null;
+
+    // Remove predicted block (will re-add or confirm)
+    if (predictedBlock) {
+      predictedBlock.remove();
+      predictedBlock = null;
+    }
+
+    // Add newly confirmed ayahs (skip already shown)
+    let addedAny = false;
+    for (const r of current) {
+      const key = r.s + ':' + r.a;
+      if (!shownAyahs.find(x => x.s+':'+x.a === key)) {
+        shownAyahs.push({ s: r.s, a: r.a });
+        lastConfirmed = r;
+        addAyahBlock(r, false);
+        addedAny = true;
       }
     }
 
-  } catch(e) { /* silent */ }
+    // Show predicted next ayah (dimmed) if we have one
+    if (next) {
+      const key = next.s + ':' + next.a;
+      if (!shownAyahs.find(x => x.s+':'+x.a === key)) {
+        predictedBlock = addAyahBlock(next, true); // dim = true
+      }
+    }
+
+    if (addedAny || current.length > 0) {
+      setIdle('Слушаем...', true);
+    }
+
+  } catch(e) {}
 
   procOn = false;
-  if (recOn && mode === 'auto') setIdle('Слушаем...', true);
 }
 
-// ── Render ────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────
+function getLang() {
+  const lm = { ru:'Russian', en:'English', tr:'Turkish', uz:'Uzbek', kk:'Kazakh', tj:'Tajik', de:'German', fr:'French' };
+  return lm[document.getElementById('langSelect').value] || 'Russian';
+}
+
 function clearAyahs() {
   const list = document.getElementById('ayahList');
-  const idle = document.getElementById('idleWrap');
   list.innerHTML = '';
   list.style.display = 'none';
-  idle.style.display = 'flex';
+  document.getElementById('idleWrap').style.display = 'flex';
+  shownAyahs = []; lastConfirmed = null; predictedBlock = null;
 }
 
-function addAyahBlock(r) {
+function addAyahBlock(r, dim) {
   const list = document.getElementById('ayahList');
-  const idle = document.getElementById('idleWrap');
-
-  // Show list, hide idle
-  idle.style.display = 'none';
+  document.getElementById('idleWrap').style.display = 'none';
   list.style.display = 'flex';
 
   const block = document.createElement('div');
-  block.className = 'ayah-block';
+  block.className = 'ayah-block' + (dim ? ' predicted' : '');
   block.innerHTML = `
     <div class="arabic-line">${r.arabic}</div>
     <div class="trans-line">${r.tr}</div>
-    <div class="ref-line">${r.name || ''} · ${r.s}:${r.a}</div>
+    <div class="ref-line">${r.name || ''} · ${r.s}:${r.a}${dim ? ' · следующий' : ''}</div>
   `;
   list.appendChild(block);
-
-  // Scroll to latest
-  setTimeout(() => {
-    block.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, 200);
+  setTimeout(() => block.scrollIntoView({ behavior: 'smooth', block: 'end' }), 150);
+  return block;
 }
 
 function setIdle(label, live) {
