@@ -8,100 +8,82 @@
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; background:#0d0d0d; color:#fff; font-family:'Inter',sans-serif; overflow:hidden; }
 
-html, body {
-height: 100%;
-background: #0d0d0d;
-color: #fff;
-font-family: ‘Inter’, sans-serif;
-overflow: hidden;
-}
-
-/* ══ LAYOUT — landscape split ══════════════════════════ */
+/* ══ LAYOUT ══════════════════════════════════════════ */
 .app {
 display: grid;
-/* landscape: left=content, right=controls */
-grid-template-columns: 1fr 88px;
-grid-template-rows: 100%;
+grid-template-columns: 1fr 80px;
 height: 100%;
 }
-
-/* portrait fallback */
 @media (orientation: portrait) {
-.app {
-grid-template-columns: 1fr;
-grid-template-rows: 1fr 90px;
-}
-.sidebar { flex-direction: row; justify-content: center; gap: 24px; padding: 0 24px 20px; border-left: none; border-top: 1px solid #1a1a1a; }
-.content { padding: 24px 28px 0; }
+.app { grid-template-columns: 1fr; grid-template-rows: 1fr 80px; }
+.sidebar { flex-direction: row; justify-content: center; border-left: none; border-top: 1px solid #181818; padding: 0 0 8px; }
+.content { padding: 0 24px; }
+.settings-panel { right: 16px !important; }
 }
 
-/* ══ LEFT — scrollable content ════════════════════════ */
+/* ══ CONTENT ══════════════════════════════════════════ */
 .content {
-padding: 0 36px 0 36px;
+padding: 0 32px;
 display: flex;
 flex-direction: column;
-overflow-y: auto;
--webkit-overflow-scrolling: touch;
-scrollbar-width: none;
+overflow: hidden;
+position: relative;
 }
-.content::-webkit-scrollbar { display: none; }
 
-/* top row inside content */
-.content-top {
+.topbar {
 display: flex;
 align-items: center;
 justify-content: space-between;
-padding: 18px 0 16px;
+padding: 16px 0 12px;
 flex-shrink: 0;
+position: relative;
+z-index: 10;
 }
 .app-title {
-font-size: 0.68rem;
-letter-spacing: 0.22em;
+font-size: 0.65rem;
+letter-spacing: 0.24em;
 text-transform: uppercase;
-color: #383838;
+color: #303030;
 font-weight: 300;
 }
 
-/* gear */
+/* ══ GEAR ══════════════════════════════════════════════ */
 .gear-btn {
-width: 32px; height: 32px;
+width: 30px; height: 30px;
 border: none; background: none;
 cursor: pointer;
 display: flex; align-items: center; justify-content: center;
-color: #383838; transition: color 0.2s;
-border-radius: 50%; position: relative;
+color: #303030; transition: color 0.2s;
+border-radius: 50%;
 }
-.gear-btn:hover, .gear-btn.open { color: #aaa; }
-.gear-btn svg { width: 16px; height: 16px; }
+.gear-btn:hover, .gear-btn.open { color: #999; }
+.gear-btn svg { width: 15px; height: 15px; }
 
-/* ══ SETTINGS PANEL ════════════════════════════════════ */
+/* ══ SETTINGS ══════════════════════════════════════════ */
 .settings-panel {
 position: fixed;
-top: 52px; right: 96px;
-width: 270px;
-background: #161616;
-border: 1px solid #242424;
+top: 50px; right: 88px;
+width: 260px;
+background: #141414;
+border: 1px solid #222;
 border-radius: 14px;
-padding: 18px;
-z-index: 400;
+padding: 16px;
+z-index: 500;
 display: none;
-box-shadow: 0 20px 60px rgba(0,0,0,0.95);
+box-shadow: 0 24px 64px rgba(0,0,0,0.98);
 }
 .settings-panel.open { display: block; }
 
-@media (orientation: portrait) {
-.settings-panel { right: 16px; top: 56px; }
-}
-
 .s-label {
-font-size: 0.65rem;
+display: block;
+font-size: 0.62rem;
 letter-spacing: 0.14em;
 text-transform: uppercase;
 color: #444;
-margin-bottom: 7px;
+margin-bottom: 6px;
 margin-top: 14px;
-display: block;
 }
 .s-label:first-child { margin-top: 0; }
 
@@ -109,118 +91,142 @@ display: block;
 .settings-panel select {
 width: 100%;
 background: #0d0d0d;
-border: 1px solid #242424;
-border-radius: 8px;
-padding: 9px 12px;
-color: #ddd;
+border: 1px solid #222;
+border-radius: 7px;
+padding: 8px 11px;
+color: #ccc;
 font-family: ‘Inter’, sans-serif;
-font-size: 0.85rem;
+font-size: 0.83rem;
 outline: none;
 }
 .settings-panel input:focus,
-.settings-panel select:focus { border-color: #3a3a3a; }
-.settings-panel select option { background: #161616; }
+.settings-panel select:focus { border-color: #333; }
+.settings-panel select option { background: #141414; }
 
-/* Mode toggle inside settings */
 .mode-toggle {
 display: flex;
 background: #0d0d0d;
-border: 1px solid #242424;
-border-radius: 8px;
+border: 1px solid #222;
+border-radius: 7px;
 overflow: hidden;
 }
 .mode-btn {
-flex: 1; padding: 9px 0;
+flex: 1; padding: 8px 0;
 border: none; background: transparent;
 color: #444;
 font-family: ‘Inter’, sans-serif;
-font-size: 0.78rem;
-font-weight: 400;
-cursor: pointer;
-transition: all 0.2s;
-letter-spacing: 0.04em;
+font-size: 0.76rem;
+cursor: pointer; transition: all 0.2s;
 }
-.mode-btn.active { background: #1e1e1e; color: #ddd; }
+.mode-btn.active { background: #1c1c1c; color: #ccc; }
 
 .btn-save {
-width: 100%; margin-top: 14px; padding: 9px;
+width: 100%; margin-top: 12px; padding: 9px;
 background: #fff; color: #000;
-border: none; border-radius: 8px;
+border: none; border-radius: 7px;
 font-family: ‘Inter’, sans-serif;
-font-size: 0.82rem; font-weight: 500;
+font-size: 0.8rem; font-weight: 500;
 cursor: pointer; transition: opacity 0.2s;
 }
 .btn-save:hover { opacity: 0.85; }
 
-/* ══ AYAH LIST ═════════════════════════════════════════ */
-.ayah-list {
+/* ══ PACE INDICATOR ══════════════════════════════════ */
+.pace-bar {
+display: none;
+align-items: center;
+gap: 8px;
+padding: 6px 0 10px;
+flex-shrink: 0;
+}
+.pace-bar.visible { display: flex; }
+.pace-dot {
+width: 5px; height: 5px; border-radius: 50%;
+background: #333;
+transition: background 0.3s;
+}
+.pace-dot.active { background: #fff; }
+.pace-label {
+font-size: 0.6rem;
+letter-spacing: 0.14em;
+text-transform: uppercase;
+color: #333;
+}
+.pace-label.calibrated { color: #555; }
+
+/* ══ 3-AYAH PORTRAIT VIEW ════════════════════════════ */
+/* Full-height container, 3 equal rows */
+.ayah-stage {
+flex: 1;
+display: none;
+flex-direction: column;
+justify-content: center;
+gap: 0;
+overflow: hidden;
+}
+.ayah-stage.visible { display: flex; }
+
+.ayah-slot {
 flex: 1;
 display: flex;
 flex-direction: column;
 justify-content: center;
-gap: 32px;
-padding: 12px 0 24px;
-min-height: 0;
+padding: 12px 0;
+transition: opacity 0.5s ease;
+overflow: hidden;
 }
 
-/* single ayah block */
-.ayah-block {
-opacity: 0;
-transform: translateY(10px);
-animation: fadeUp 0.55s ease forwards;
-}
-@keyframes fadeUp {
-to { opacity: 1; transform: translateY(0); }
+/* prev & next: dim */
+.ayah-slot.prev { opacity: 0.22; }
+.ayah-slot.next { opacity: 0.22; }
+/* current: full white */
+.ayah-slot.current { opacity: 1; }
+
+/* dividers */
+.ayah-slot.current {
+border-top: 1px solid #1e1e1e;
+border-bottom: 1px solid #1e1e1e;
 }
 
-.arabic-line {
+.arabic-text {
 font-family: ‘Amiri’, serif;
-font-size: clamp(1.4rem, 3.5vw, 2.1rem);
-line-height: 1.85;
+font-size: clamp(1.1rem, 3.8vw, 1.9rem);
+line-height: 1.9;
 direction: rtl;
+text-align: right;
 color: #f0f0f0;
-margin-bottom: 10px;
 }
-
-.trans-line {
-font-size: clamp(0.88rem, 1.8vw, 1rem);
-line-height: 1.7;
+.trans-text {
+margin-top: 6px;
+font-size: clamp(0.78rem, 1.8vw, 0.93rem);
+line-height: 1.65;
 color: #aaa;
 font-weight: 300;
 }
-
-.ref-line {
-margin-top: 8px;
-font-size: 0.62rem;
-letter-spacing: 0.16em;
+.ref-text {
+margin-top: 6px;
+font-size: 0.58rem;
+letter-spacing: 0.15em;
 text-transform: uppercase;
-color: #2e2e2e;
+color: #2a2a2a;
 }
 
-/* Predicted (next) ayah — dimmed */
-.ayah-block.predicted .arabic-line { color: #444; }
-.ayah-block.predicted .trans-line  { color: #333; }
-.ayah-block.predicted .ref-line    { color: #222; }
-
-/* divider between ayahs */
-.ayah-block + .ayah-block {
-border-top: 1px solid #1a1a1a;
-padding-top: 32px;
+/* Slide animation when advancing */
+.ayah-stage.sliding .ayah-slot {
+transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
-/* ══ IDLE STATE ════════════════════════════════════════ */
+/* ══ IDLE ══════════════════════════════════════════════ */
 .idle-wrap {
 flex: 1;
 display: flex;
 flex-direction: column;
-align-items: flex-start;
 justify-content: center;
 gap: 10px;
 }
-.idle-dots { display: flex; gap: 6px; align-items: center; }
+.idle-dots { display: flex; gap: 6px; }
 .idle-dots span {
 width: 4px; height: 4px; border-radius: 50%;
-background: #282828;
+background: #242424;
 animation: dp 1.4s ease-in-out infinite;
 }
 .idle-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -229,79 +235,66 @@ animation: dp 1.4s ease-in-out infinite;
 0%,80%,100% { opacity:0.3; transform:scale(0.8); }
 40% { opacity:1; transform:scale(1); }
 }
-.idle-dots.live span { background: #ccc; }
+.idle-dots.live span { background: #888; }
 .idle-text {
-font-size: 0.7rem;
-letter-spacing: 0.16em;
+font-size: 0.65rem;
+letter-spacing: 0.18em;
 text-transform: uppercase;
-color: #2e2e2e;
+color: #282828;
 }
 
-/* ══ RIGHT SIDEBAR — controls ══════════════════════════ */
+/* ══ SIDEBAR ══════════════════════════════════════════ */
 .sidebar {
-border-left: 1px solid #161616;
+border-left: 1px solid #141414;
 display: flex;
 flex-direction: column;
 align-items: center;
 justify-content: center;
-gap: 20px;
-padding: 20px 0;
+gap: 16px;
+padding: 16px 0;
 flex-shrink: 0;
 }
 
-/* Mic */
 .mic-btn {
-width: 60px; height: 60px;
+width: 56px; height: 56px;
 border-radius: 50%;
-border: 1.5px solid #242424;
+border: 1.5px solid #1e1e1e;
 background: #111;
 cursor: pointer;
 display: flex; align-items: center; justify-content: center;
 transition: all 0.25s;
 position: relative;
-flex-shrink: 0;
 }
-.mic-btn svg { width: 22px; height: 22px; fill: #ccc; transition: fill 0.2s; }
-.mic-btn:hover { border-color: #555; }
-
-.mic-btn.on { background: #f0f0f0; border-color: #f0f0f0; }
+.mic-btn svg { width: 20px; height: 20px; fill: #aaa; transition: fill 0.2s; }
+.mic-btn:hover { border-color: #444; }
+.mic-btn.on { background: #efefef; border-color: #efefef; }
 .mic-btn.on svg { fill: #000; }
 .mic-btn.on::after {
 content: ‘’;
-position: absolute; inset: -7px;
+position: absolute; inset: -6px;
 border-radius: 50%;
-border: 1px solid rgba(255,255,255,0.1);
-animation: ring 1.8s ease-out infinite;
+border: 1px solid rgba(255,255,255,0.08);
+animation: ring 2s ease-out infinite;
 }
 @keyframes ring {
-0% { transform: scale(1); opacity: 1; }
-100% { transform: scale(1.55); opacity: 0; }
+0% { transform:scale(1); opacity:1; }
+100% { transform:scale(1.6); opacity:0; }
 }
-.mic-btn.thinking { border-color: #1e1e1e; }
-.mic-btn.thinking svg { fill: #333; }
+.mic-btn.thinking svg { fill: #2a2a2a; }
 
-/* Timer */
 .timer {
-font-size: 0.65rem;
-color: #2e2e2e;
+font-size: 0.6rem;
+color: #282828;
 letter-spacing: 0.08em;
 font-variant-numeric: tabular-nums;
-text-align: center;
 }
-
-/* Overlay — MUST be below settings panel (z-index 299 < 300) */
-.overlay { display:none; }
 </style>
 
 </head>
 <body>
-
 <div class="app">
-
-  <!-- LEFT: content -->
-
   <div class="content">
-    <div class="content-top">
+    <div class="topbar">
       <span class="app-title">Quran Live</span>
       <div style="position:relative">
         <button class="gear-btn" id="gearBtn" onclick="toggleSettings()">
@@ -310,90 +303,112 @@ text-align: center;
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
+        <div class="settings-panel" id="settingsPanel">
+          <span class="s-label">OpenAI API Key</span>
+          <input type="password" id="apiKey" placeholder="sk-..."/>
+          <span class="s-label">Язык перевода</span>
+          <select id="langSelect">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+            <option value="tr">Türkçe</option>
+            <option value="uz">O'zbekcha</option>
+            <option value="kk">Қазақша</option>
+            <option value="tj">Тоҷикӣ</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+          </select>
+          <span class="s-label">Режим</span>
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="mManual" onclick="setMode('manual')">Поиск аята</button>
+            <button class="mode-btn" id="mAuto" onclick="setMode('auto')">Live</button>
+          </div>
+          <button class="btn-save" onclick="saveSettings()">Сохранить</button>
+        </div>
+      </div>
+    </div>
 
 ```
-    <div class="settings-panel" id="settingsPanel">
-      <span class="s-label">OpenAI API Key</span>
-      <input type="password" id="apiKey" placeholder="sk-..."/>
-
-      <span class="s-label">Язык перевода</span>
-      <select id="langSelect">
-        <option value="ru">Русский</option>
-        <option value="en">English</option>
-        <option value="tr">Türkçe</option>
-        <option value="uz">O'zbekcha</option>
-        <option value="kk">Қазақша</option>
-        <option value="tj">Тоҷикӣ</option>
-        <option value="de">Deutsch</option>
-        <option value="fr">Français</option>
-      </select>
-
-      <span class="s-label">Режим</span>
-      <div class="mode-toggle">
-        <button class="mode-btn active" id="mManual" onclick="setMode('manual')">Поиск аята</button>
-        <button class="mode-btn" id="mAuto" onclick="setMode('auto')">Live</button>
-      </div>
-
-      <button class="btn-save" onclick="saveSettings()">Сохранить</button>
-    </div>
-  </div>
+<!-- Pace calibration indicator -->
+<div class="pace-bar" id="paceBar">
+  <div class="pace-dot" id="pd0"></div>
+  <div class="pace-dot" id="pd1"></div>
+  <div class="pace-label" id="paceLabel">Калибровка темпа...</div>
 </div>
 
-<!-- Idle -->
+<!-- Idle state -->
 <div class="idle-wrap" id="idleWrap">
   <div class="idle-dots" id="idleDots"><span></span><span></span><span></span></div>
   <div class="idle-text" id="idleText">Нажмите микрофон</div>
 </div>
 
-<!-- Ayahs -->
-<div class="ayah-list" id="ayahList" style="display:none"></div>
+<!-- 3-ayah stage: prev / current / next -->
+<div class="ayah-stage" id="ayahStage">
+  <div class="ayah-slot prev" id="slotPrev">
+    <div class="arabic-text" id="prevArabic"></div>
+    <div class="trans-text"  id="prevTrans"></div>
+    <div class="ref-text"    id="prevRef"></div>
+  </div>
+  <div class="ayah-slot current" id="slotCurrent">
+    <div class="arabic-text" id="curArabic"></div>
+    <div class="trans-text"  id="curTrans"></div>
+    <div class="ref-text"    id="curRef"></div>
+  </div>
+  <div class="ayah-slot next" id="slotNext">
+    <div class="arabic-text" id="nextArabic"></div>
+    <div class="trans-text"  id="nextTrans"></div>
+    <div class="ref-text"    id="nextRef"></div>
+  </div>
+</div>
 ```
 
   </div>
-
-  <!-- RIGHT: sidebar controls -->
 
   <div class="sidebar">
     <div class="timer" id="timerEl"></div>
-
-```
-<button class="mic-btn" id="micBtn" onclick="toggleRec()">
-  <svg viewBox="0 0 24 24">
-    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/>
-  </svg>
-</button>
-```
-
+    <button class="mic-btn" id="micBtn" onclick="toggleRec()">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/>
+      </svg>
+    </button>
   </div>
-
 </div>
 
 <script>
-// ── State ────────────────────────────────────────────
+// ══ Config ════════════════════════════════════════════
 let apiKey = localStorage.getItem('qk') || '';
 let mode   = localStorage.getItem('qmode') || 'manual';
-let mediaRec = null;
+
+// ══ Recording state ═══════════════════════════════════
+let mediaRec = null, audioCtx = null;
 let allChunks = [], pendChunks = [];
-let recOn = false, procOn = false;
+let recOn = false;
 let timerSec = 0, timerIv = null, autoIv = null;
+let silenceTimer = null, wasSpeaking = false;
+let sliceStart = 0;
 let mime = 'audio/mp4';
 
-// Live mode state
-let shownAyahs = [];
-let lastConfirmed = null;
-let predictedBlock = null;
-let liveQueue = [];       // queue of chunk batches waiting to be processed
-let liveRunning = false;  // is the queue worker running
+// ══ Pace calibration ══════════════════════════════════
+// We track: for each confirmed ayah, how long it took (ms) and how many Arabic chars
+// From 2+ samples we compute chars/ms → estimate duration of next ayah
+let paceSamples = [];     // [{chars, ms}]
+let charsPerMs  = null;   // calibrated rate, null = not yet
+let pendingSliceStart = 0; // when we started recording THIS slice
 
+// ══ Ayah state ════════════════════════════════════════
+let ayahWindow = [null, null, null]; // [prev, current, next]
+let liveQueue  = [], liveRunning = false;
+let nextPaceTimer = null; // setTimeout for auto-advancing to next ayah
+
+// ══ Init ══════════════════════════════════════════════
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
 
-// ── Settings ─────────────────────────────────────────
+// ══ Settings ══════════════════════════════════════════
 function toggleSettings() {
-  const panel = document.getElementById('settingsPanel');
-  const isOpen = panel.classList.toggle('open');
-  document.getElementById('gearBtn').classList.toggle('open', isOpen);
+  const p = document.getElementById('settingsPanel');
+  const o = p.classList.toggle('open');
+  document.getElementById('gearBtn').classList.toggle('open', o);
 }
 function closeSettings() {
   document.getElementById('settingsPanel').classList.remove('open');
@@ -405,12 +420,10 @@ function saveSettings() {
   localStorage.setItem('qmode', mode);
   closeSettings();
 }
-document.addEventListener('click', function(e) {
-  const panel = document.getElementById('settingsPanel');
-  const gear  = document.getElementById('gearBtn');
-  if (panel.classList.contains('open') && !panel.contains(e.target) && !gear.contains(e.target)) {
-    closeSettings();
-  }
+document.addEventListener('click', e => {
+  const p = document.getElementById('settingsPanel');
+  const g = document.getElementById('gearBtn');
+  if (p.classList.contains('open') && !p.contains(e.target) && !g.contains(e.target)) closeSettings();
 });
 function setMode(m) { mode = m; applyMode(m); }
 function applyMode(m) {
@@ -418,13 +431,9 @@ function applyMode(m) {
   document.getElementById('mAuto').classList.toggle('active', m === 'auto');
 }
 
-// ── Recording ─────────────────────────────────────────
+// ══ Recording ═════════════════════════════════════════
 async function toggleRec() {
-  if (recOn) {
-    mode === 'manual' ? await stopManual() : stopLive();
-  } else {
-    await startRec();
-  }
+  recOn ? (mode === 'manual' ? stopManual() : stopLive()) : startRec();
 }
 
 async function startRec() {
@@ -434,8 +443,10 @@ async function startRec() {
       audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
     });
     allChunks = []; pendChunks = [];
-    shownAyahs = []; lastConfirmed = null; predictedBlock = null;
+    ayahWindow = [null, null, null];
+    paceSamples = []; charsPerMs = null;
     liveQueue = []; liveRunning = false;
+    if (nextPaceTimer) { clearTimeout(nextPaceTimer); nextPaceTimer = null; }
 
     const m = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
             : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
@@ -446,8 +457,12 @@ async function startRec() {
     };
     mediaRec.start(100);
     recOn = true;
+    sliceStart = Date.now();
+    pendingSliceStart = Date.now();
 
     document.getElementById('micBtn').classList.add('on');
+    document.getElementById('idleWrap').style.display = 'flex';
+    document.getElementById('ayahStage').classList.remove('visible');
     setIdle('Слушаем...', true);
 
     timerSec = 0;
@@ -459,6 +474,7 @@ async function startRec() {
     }, 1000);
 
     if (mode === 'auto') {
+      document.getElementById('paceBar').classList.add('visible');
       startSilenceDetection(stream);
     }
   } catch(e) { alert('Микрофон недоступен: ' + e.message); }
@@ -466,12 +482,10 @@ async function startRec() {
 
 async function stopManual() {
   recOn = false;
-  clearInterval(timerIv); clearInterval(autoIv);
+  clearInterval(timerIv);
   document.getElementById('timerEl').textContent = '';
-  if (mediaRec && mediaRec.state !== 'inactive') {
-    mediaRec.stop(); mediaRec.stream.getTracks().forEach(t => t.stop());
-  }
-  document.getElementById('micBtn').classList.remove('on');
+  if (mediaRec?.state !== 'inactive') { mediaRec.stop(); mediaRec.stream.getTracks().forEach(t=>t.stop()); }
+  document.getElementById('micBtn').classList.remove('on').toString();
   document.getElementById('micBtn').classList.add('thinking');
   setIdle('Распознаём...', false);
 
@@ -479,260 +493,325 @@ async function stopManual() {
   const ch = [...allChunks]; allChunks = [];
   await processManual(ch);
   document.getElementById('micBtn').classList.remove('thinking');
-  if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
 }
 
 function stopLive() {
   recOn = false;
-  clearInterval(timerIv);
-  clearInterval(autoIv);
+  clearInterval(timerIv); clearInterval(autoIv);
   if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+  if (nextPaceTimer) { clearTimeout(nextPaceTimer); nextPaceTimer = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
   document.getElementById('timerEl').textContent = '';
-  if (mediaRec && mediaRec.state !== 'inactive') {
-    mediaRec.stop(); mediaRec.stream.getTracks().forEach(t => t.stop());
-  }
+  if (mediaRec?.state !== 'inactive') { mediaRec.stop(); mediaRec.stream.getTracks().forEach(t=>t.stop()); }
   document.getElementById('micBtn').classList.remove('on');
-  if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
+  document.getElementById('paceBar').classList.remove('visible');
 }
 
-// ── Silence detection ─────────────────────────────────
-let audioCtx = null;
-let silenceTimer = null;
-let wasSpeaking = false;
-const SILENCE_THRESHOLD = 0.01;  // RMS below this = silence
-const SILENCE_DURATION  = 1200;  // ms of silence = end of ayah
-const MIN_AYAH_MS       = 1500;  // don't slice if < 1.5s of audio
-let sliceStartTime = 0;
+// ══ Silence detection ═════════════════════════════════
+const SILENCE_THR = 0.012;
+const SILENCE_DUR = 1100;  // ms of silence = ayah boundary
+const MIN_SLICE   = 1200;  // minimum slice length ms
 
 function startSilenceDetection(stream) {
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source   = audioCtx.createMediaStreamSource(stream);
-  const analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 512;
-  source.connect(analyser);
+  const src = audioCtx.createMediaStreamSource(stream);
+  const ana = audioCtx.createAnalyser();
+  ana.fftSize = 512;
+  src.connect(ana);
+  const buf = new Float32Array(ana.fftSize);
 
-  const buf = new Float32Array(analyser.fftSize);
-  sliceStartTime = Date.now();
-
-  function getRMS() {
-    analyser.getFloatTimeDomainData(buf);
-    let sum = 0;
-    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-    return Math.sqrt(sum / buf.length);
+  function rms() {
+    ana.getFloatTimeDomainData(buf);
+    let s = 0; for (let i=0; i<buf.length; i++) s += buf[i]*buf[i];
+    return Math.sqrt(s/buf.length);
   }
 
   autoIv = setInterval(() => {
     if (!recOn) return;
-    const rms = getRMS();
-    const isSpeaking = rms > SILENCE_THRESHOLD;
-
-    if (isSpeaking) {
+    const speaking = rms() > SILENCE_THR;
+    if (speaking) {
       wasSpeaking = true;
       if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
     } else if (wasSpeaking && !silenceTimer) {
-      // Silence started — wait SILENCE_DURATION then slice
       silenceTimer = setTimeout(() => {
         silenceTimer = null;
-        const elapsed = Date.now() - sliceStartTime;
-        if (pendChunks.length > 0 && elapsed >= MIN_AYAH_MS) {
+        const elapsed = Date.now() - pendingSliceStart;
+        if (pendChunks.length > 0 && elapsed >= MIN_SLICE) {
+          const sliceDuration = elapsed;
           const b = [...pendChunks]; pendChunks = [];
-          sliceStartTime = Date.now();
+          pendingSliceStart = Date.now();
           wasSpeaking = false;
-          liveQueue.push(b);
-          if (liveQueue.length > 4) liveQueue.shift();
-          runLiveQueue();
+          liveQueue.push({ chunks: b, duration: sliceDuration });
+          if (liveQueue.length > 5) liveQueue.shift();
+          runQueue();
         }
-      }, SILENCE_DURATION);
+      }, SILENCE_DUR);
     }
-  }, 100); // check every 100ms
+  }, 80);
 }
 
-// ── Queue worker for Live mode ─────────────────────────
-async function runLiveQueue() {
-  if (liveRunning) return; // already running
+// ══ Queue ══════════════════════════════════════════════
+async function runQueue() {
+  if (liveRunning) return;
   liveRunning = true;
   while (liveQueue.length > 0) {
-    const batch = liveQueue.shift();
-    await processLive(batch);
+    const item = liveQueue.shift();
+    await processLive(item.chunks, item.duration);
   }
   liveRunning = false;
 }
 
-// ── MANUAL MODE: transcribe everything, return all ayahs ──
+// ══ MANUAL: find all ayahs ════════════════════════════
 async function processManual(chunks) {
   if (!chunks.length) return;
-  procOn = true;
-
-  try {    const blob = new Blob(chunks, { type: mime });
-    const fd = new FormData();
-    fd.append('file', blob, 'a.' + (mime.includes('webm') ? 'webm' : 'mp4'));
-    fd.append('model', 'whisper-1');
-    fd.append('language', 'ar');
-    fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
-
-    const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: fd
-    });
-    if (!wr.ok) { procOn = false; return; }
-    const { text } = await wr.json();
-    if (!text?.trim()) { procOn = false; return; }
-
-    const ln = getLang();
-    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-4o', max_tokens: 3000,
-        messages: [{
-          role: 'system',
-          content: `Quran expert. User recited multiple ayahs. Identify ALL of them in order.
-Return COMPLETE full Arabic text for every ayah, even if only partially heard.
-Be generous with errors and partial text.
-Respond ONLY with JSON array, no markdown:
-[{"s":67,"a":1,"name":"Al-Mulk","arabic":"FULL TEXT","tr":"translation in ${ln}"},...]
-If nothing: []`
-        }, {
-          role: 'user', content: 'Transcription: "' + text.trim() + '"'
-        }]
-      })
-    });
-    if (!gr.ok) { procOn = false; return; }
-
-    const raw = (await gr.json()).choices[0]?.message?.content || '';
-    let arr = [];
-    try { arr = JSON.parse(raw.replace(/```json|```/g,'').trim()); } catch {}
-
-    if (Array.isArray(arr) && arr.length > 0) {
-      clearAyahs();
-      arr.forEach((r, i) => setTimeout(() => addAyahBlock(r, false), i * 150));
-    }
-  } catch(e) {}
-  procOn = false;
-}
-
-// ── LIVE MODE: process 4s slices, show confirmed + predict next ──
-async function processLive(chunks) {
-  if (!chunks.length) return;
-
   try {
     const blob = new Blob(chunks, { type: mime });
     const fd = new FormData();
-    fd.append('file', blob, 'a.' + (mime.includes('webm') ? 'webm' : 'mp4'));
+    fd.append('file', blob, 'a.' + (mime.includes('webm')?'webm':'mp4'));
     fd.append('model', 'whisper-1');
     fd.append('language', 'ar');
     fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
 
     const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: fd
+      method:'POST', headers:{Authorization:'Bearer '+apiKey}, body:fd
     });
-    if (!wr.ok) { procOn = false; return; }
+    if (!wr.ok) return;
     const { text } = await wr.json();
-    if (!text?.trim()) { procOn = false; return; }
+    if (!text?.trim()) return;
 
     const ln = getLang();
-    const ctx = lastConfirmed
-      ? `Last confirmed ayah: Surah ${lastConfirmed.s} (${lastConfirmed.name}) Ayah ${lastConfirmed.a}.`
-      : '';
-
-    // Ask GPT: which ayah(s) are in this 4s slice + what comes NEXT
     const gr = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      method:'POST',
+      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
       body: JSON.stringify({
-        model: 'gpt-4o', max_tokens: 1200,
-        messages: [{
-          role: 'system',
-          content: `Quran expert. This is a 4-second audio slice of live Quran recitation.
-${ctx}
-Tasks:
-1. Identify the ayah(s) being recited in this slice (return ALL if multiple)
-2. Return the NEXT ayah after the last identified one (for prediction)
-
-Return ONLY JSON, no markdown:
-{
-  "current": [{"s":67,"a":1,"name":"Al-Mulk","arabic":"FULL AYAH","tr":"in ${ln}"}],
-  "next": {"s":67,"a":2,"name":"Al-Mulk","arabic":"FULL AYAH","tr":"in ${ln}"}
-}
-If nothing recognized: {"current":[],"next":null}`
-        }, {
-          role: 'user', content: 'Slice transcription: "' + text.trim() + '"'
-        }]
+        model:'gpt-4o', max_tokens:3000,
+        messages:[{
+          role:'system',
+          content:`Quran expert. Identify ALL ayahs recited in order. Return COMPLETE full Arabic text for each.
+JSON array only, no markdown:
+[{"s":78,"a":1,"name":"An-Naba","arabic":"FULL TEXT","tr":"translation in ${ln}"},...]
+Empty array if nothing.`
+        },{role:'user',content:'"'+text.trim()+'"'}]
       })
     });
-    if (!gr.ok) { procOn = false; return; }
+    if (!gr.ok) return;
+    const raw = (await gr.json()).choices[0]?.message?.content||'';
+    let arr=[]; try{arr=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{}
+    if (!Array.isArray(arr)||!arr.length) return;
 
-    const raw = (await gr.json()).choices[0]?.message?.content || '';
-    let res = {};
-    try { res = JSON.parse(raw.replace(/```json|```/g,'').trim()); } catch {}
-
-    const current = Array.isArray(res.current) ? res.current : [];
-    const next    = res.next || null;
-
-    // Remove predicted block (will re-add or confirm)
-    if (predictedBlock) {
-      predictedBlock.remove();
-      predictedBlock = null;
-    }
-
-    // Add newly confirmed ayahs (skip already shown)
-    let addedAny = false;
-    for (const r of current) {
-      const key = r.s + ':' + r.a;
-      if (!shownAyahs.find(x => x.s+':'+x.a === key)) {
-        shownAyahs.push({ s: r.s, a: r.a });
-        lastConfirmed = r;
-        addAyahBlock(r, false);
-        addedAny = true;
-      }
-    }
-
-    // Show predicted next ayah (dimmed) if we have one
-    if (next) {
-      const key = next.s + ':' + next.a;
-      if (!shownAyahs.find(x => x.s+':'+x.a === key)) {
-        predictedBlock = addAyahBlock(next, true); // dim = true
-      }
-    }
-
-    if (addedAny || current.length > 0) {
-      setIdle('Слушаем...', true);
-    }
-
-  } catch(e) {}
+    // Show as scrollable list (manual mode)
+    showManualResults(arr);
+  } catch(e){}
+  document.getElementById('micBtn').classList.remove('thinking');
 }
 
-// ── Helpers ───────────────────────────────────────────
-function getLang() {
-  const lm = { ru:'Russian', en:'English', tr:'Turkish', uz:'Uzbek', kk:'Kazakh', tj:'Tajik', de:'German', fr:'French' };
-  return lm[document.getElementById('langSelect').value] || 'Russian';
-}
+function showManualResults(arr) {
+  // Re-use stage but show all in a scrollable list instead of 3-slot
+  const stage = document.getElementById('ayahStage');
+  const idle  = document.getElementById('idleWrap');
+  idle.style.display = 'none';
 
-function clearAyahs() {
-  const list = document.getElementById('ayahList');
+  // Replace stage with a scrollable list for manual mode
+  let list = document.getElementById('manualList');
+  if (!list) {
+    list = document.createElement('div');
+    list.id = 'manualList';
+    list.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:28px;padding:12px 0 24px;';
+    stage.parentNode.insertBefore(list, stage);
+  }
   list.innerHTML = '';
-  list.style.display = 'none';
-  document.getElementById('idleWrap').style.display = 'flex';
-  shownAyahs = []; lastConfirmed = null; predictedBlock = null;
-}
-
-function addAyahBlock(r, dim) {
-  const list = document.getElementById('ayahList');
-  document.getElementById('idleWrap').style.display = 'none';
   list.style.display = 'flex';
+  stage.classList.remove('visible');
 
-  const block = document.createElement('div');
-  block.className = 'ayah-block' + (dim ? ' predicted' : '');
-  block.innerHTML = `
-    <div class="arabic-line">${r.arabic}</div>
-    <div class="trans-line">${r.tr}</div>
-    <div class="ref-line">${r.name || ''} · ${r.s}:${r.a}${dim ? ' · следующий' : ''}</div>
-  `;
-  list.appendChild(block);
-  setTimeout(() => block.scrollIntoView({ behavior: 'smooth', block: 'end' }), 150);
-  return block;
+  arr.forEach((r,i) => {
+    setTimeout(() => {
+      const d = document.createElement('div');
+      d.style.cssText = i>0 ? 'border-top:1px solid #181818;padding-top:28px;' : '';
+      d.innerHTML = `
+        <div style="font-family:'Amiri',serif;font-size:clamp(1.2rem,3.5vw,1.8rem);line-height:1.9;direction:rtl;text-align:right;color:#f0f0f0;margin-bottom:8px">${r.arabic}</div>
+        <div style="font-size:clamp(0.82rem,1.8vw,0.95rem);line-height:1.65;color:#aaa;font-weight:300">${r.tr}</div>
+        <div style="margin-top:6px;font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:#2a2a2a">${r.name} · ${r.s}:${r.a}</div>
+      `;
+      list.appendChild(d);
+      setTimeout(()=>d.scrollIntoView({behavior:'smooth',block:'end'}),100);
+    }, i*120);
+  });
 }
 
+// ══ LIVE: process one ayah slice ══════════════════════
+async function processLive(chunks, sliceDurationMs) {
+  if (!chunks.length) return;
+  try {
+    const blob = new Blob(chunks, { type: mime });
+    const fd = new FormData();
+    fd.append('file', blob, 'a.'+(mime.includes('webm')?'webm':'mp4'));
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'ar');
+    fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
+
+    const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method:'POST', headers:{Authorization:'Bearer '+apiKey}, body:fd
+    });
+    if (!wr.ok) return;
+    const { text } = await wr.json();
+    if (!text?.trim()) return;
+
+    const ln = getLang();
+    const prev = ayahWindow[1]; // current becomes prev after advance
+    const ctx  = prev ? `Previous ayah confirmed: Surah ${prev.s} (${prev.name}) Ayah ${prev.a}.` : '';
+
+    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'gpt-4o', max_tokens:900,
+        messages:[{
+          role:'system',
+          content:`Quran expert. ${ctx}
+Identify the ayah recited. Be very generous with errors.
+Return ONLY JSON, no markdown:
+{"s":78,"a":1,"name":"An-Naba","arabic":"COMPLETE FULL AYAH","tr":"translation in ${ln}"}`
+        },{role:'user',content:'"'+text.trim()+'"'}]
+      })
+    });
+    if (!gr.ok) return;
+    const raw=(await gr.json()).choices[0]?.message?.content||'';
+    let cur={};
+    try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{return;}
+    if (!cur.s) return;
+
+    // ── Pace calibration ───────────────────────────────
+    const charCount = (cur.arabic||'').replace(/\s/g,'').length;
+    if (charCount > 0 && sliceDurationMs > 500) {
+      paceSamples.push({ chars: charCount, ms: sliceDurationMs });
+      if (paceSamples.length >= 2) {
+        // Compute weighted average chars/ms
+        const totalChars = paceSamples.reduce((s,x)=>s+x.chars,0);
+        const totalMs    = paceSamples.reduce((s,x)=>s+x.ms,0);
+        charsPerMs = totalChars / totalMs;
+        updatePaceUI(true);
+      } else {
+        updatePaceUI(false);
+      }
+    }
+
+    // Skip if same ayah still
+    const curKey = cur.s+':'+cur.a;
+    if (ayahWindow[1] && ayahWindow[1].s+':'+ayahWindow[1].a === curKey) return;
+
+    // Cancel pending pace-advance timer (GPT confirmed before it fired)
+    if (nextPaceTimer) { clearTimeout(nextPaceTimer); nextPaceTimer = null; }
+
+    // Fetch next ayah (background, non-blocking)
+    fetchOneNext(cur.s, cur.a, ln).then(nxt => {
+      // Update window: prev=old current, current=cur, next=nxt
+      const oldCur = ayahWindow[1];
+      ayahWindow = [oldCur, cur, nxt];
+      renderWindow();
+
+      // Schedule pace-based auto-advance IF calibrated
+      schedulePaceAdvance(nxt, ln);
+    });
+
+  } catch(e){}
+}
+
+// ══ Fetch one next ayah ════════════════════════════════
+async function fetchOneNext(s, a, ln) {
+  try {
+    const gr = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'gpt-4o', max_tokens:500,
+        messages:[{
+          role:'system',
+          content:`Return the single next Quran ayah after Surah ${s} Ayah ${a}.
+JSON only, no markdown:
+{"s":78,"a":2,"name":"An-Naba","arabic":"COMPLETE FULL TEXT","tr":"translation in ${ln}"}`
+        },{role:'user',content:'Next ayah after '+s+':'+a}]
+      })
+    });
+    if (!gr.ok) return null;
+    const raw=(await gr.json()).choices[0]?.message?.content||'';
+    const r=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    return r.s ? r : null;
+  } catch{return null;}
+}
+
+// ══ Pace-based auto-advance ════════════════════════════
+function schedulePaceAdvance(nextAyah, ln) {
+  if (!nextAyah || !charsPerMs) return;
+
+  // Estimate how long the NEXT ayah will take
+  const chars = (nextAyah.arabic||'').replace(/\s/g,'').length;
+  const estimatedMs = chars / charsPerMs;
+
+  // Advance display when estimated time is up
+  nextPaceTimer = setTimeout(async () => {
+    nextPaceTimer = null;
+    if (!recOn) return;
+
+    // Shift window: prev=current, current=next, next=fetch new
+    const newPrev = ayahWindow[1];
+    const newCur  = ayahWindow[2];
+    if (!newCur) return;
+
+    ayahWindow = [newPrev, newCur, null];
+    renderWindow();
+
+    // Fetch the one after
+    const nxt = await fetchOneNext(newCur.s, newCur.a, ln);
+    ayahWindow[2] = nxt;
+    renderWindow();
+
+    // Schedule next advance
+    schedulePaceAdvance(nxt, ln);
+  }, estimatedMs);
+}
+
+// ══ Render 3-slot window ══════════════════════════════
+function renderWindow() {
+  const [prev, cur, nxt] = ayahWindow;
+
+  document.getElementById('idleWrap').style.display = 'none';
+  const ml = document.getElementById('manualList');
+  if (ml) ml.style.display = 'none';
+  document.getElementById('ayahStage').classList.add('visible');
+
+  fillSlot('prev', prev);
+  fillSlot('cur',  cur);
+  fillSlot('next', nxt);
+}
+
+function fillSlot(slot, ayah) {
+  const prefix = slot === 'cur' ? 'cur' : slot === 'prev' ? 'prev' : 'next';
+  document.getElementById(prefix+'Arabic').textContent = ayah ? ayah.arabic : '';
+  document.getElementById(prefix+'Trans').textContent  = ayah ? ayah.tr     : '';
+  document.getElementById(prefix+'Ref').textContent    = ayah ? (ayah.name+' · '+ayah.s+':'+ayah.a) : '';
+}
+
+// ══ Pace UI ════════════════════════════════════════════
+function updatePaceUI(calibrated) {
+  const bar   = document.getElementById('paceBar');
+  const label = document.getElementById('paceLabel');
+  document.getElementById('pd0').classList.toggle('active', paceSamples.length >= 1);
+  document.getElementById('pd1').classList.toggle('active', paceSamples.length >= 2);
+  if (calibrated) {
+    const cpm = Math.round(charsPerMs * 1000);
+    label.textContent = `Темп: ${cpm} букв/сек`;
+    label.className = 'pace-label calibrated';
+  } else {
+    label.textContent = `Калибровка... (${paceSamples.length}/2)`;
+    label.className = 'pace-label';
+  }
+}
+
+// ══ Helpers ════════════════════════════════════════════
+function getLang() {
+  const m={ru:'Russian',en:'English',tr:'Turkish',uz:'Uzbek',kk:'Kazakh',tj:'Tajik',de:'German',fr:'French'};
+  return m[document.getElementById('langSelect').value]||'Russian';
+}
 function setIdle(label, live) {
   document.getElementById('idleText').textContent = label;
   document.getElementById('idleDots').classList.toggle('live', live);
