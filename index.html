@@ -5,211 +5,250 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Quran Live</title>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
-body {
+html, body {
+height: 100%;
 background: #0d0d0d;
 color: #fff;
 font-family: ‘Inter’, sans-serif;
-min-height: 100vh;
-display: flex;
-flex-direction: column;
+overflow: hidden;
 }
 
-/* Top bar */
-.topbar {
+/* ══ LAYOUT — landscape split ══════════════════════════ */
+.app {
+display: grid;
+/* landscape: left=content, right=controls */
+grid-template-columns: 1fr 88px;
+grid-template-rows: 100%;
+height: 100%;
+}
+
+/* portrait fallback */
+@media (orientation: portrait) {
+.app {
+grid-template-columns: 1fr;
+grid-template-rows: 1fr 90px;
+}
+.sidebar { flex-direction: row; justify-content: center; gap: 24px; padding: 0 24px 20px; border-left: none; border-top: 1px solid #1a1a1a; }
+.content { padding: 24px 28px 0; }
+}
+
+/* ══ LEFT — scrollable content ════════════════════════ */
+.content {
+padding: 0 36px 0 36px;
+display: flex;
+flex-direction: column;
+overflow-y: auto;
+-webkit-overflow-scrolling: touch;
+scrollbar-width: none;
+}
+.content::-webkit-scrollbar { display: none; }
+
+/* top row inside content */
+.content-top {
 display: flex;
 align-items: center;
 justify-content: space-between;
-padding: 20px 24px 16px;
-position: relative;
-z-index: 100;
+padding: 18px 0 16px;
+flex-shrink: 0;
 }
-
 .app-title {
-font-size: 0.72rem;
+font-size: 0.68rem;
 letter-spacing: 0.22em;
 text-transform: uppercase;
-color: #444;
+color: #383838;
 font-weight: 300;
 }
 
+/* gear */
 .gear-btn {
-width: 36px; height: 36px;
+width: 32px; height: 32px;
 border: none; background: none;
 cursor: pointer;
 display: flex; align-items: center; justify-content: center;
-color: #444;
-transition: color 0.2s;
-border-radius: 50%;
-position: relative;
+color: #383838; transition: color 0.2s;
+border-radius: 50%; position: relative;
 }
-.gear-btn:hover { color: #fff; }
-.gear-btn svg { width: 18px; height: 18px; }
+.gear-btn:hover, .gear-btn.open { color: #aaa; }
+.gear-btn svg { width: 16px; height: 16px; }
 
-/* Settings panel */
+/* ══ SETTINGS PANEL ════════════════════════════════════ */
 .settings-panel {
-position: absolute;
-top: 44px; right: 0;
-width: 280px;
+position: fixed;
+top: 52px; right: 96px;
+width: 270px;
 background: #161616;
-border: 1px solid #252525;
+border: 1px solid #242424;
 border-radius: 14px;
-padding: 20px;
-z-index: 200;
+padding: 18px;
+z-index: 300;
 display: none;
-box-shadow: 0 24px 64px rgba(0,0,0,0.9);
+box-shadow: 0 20px 60px rgba(0,0,0,0.95);
 }
 .settings-panel.open { display: block; }
 
-.settings-panel label {
-display: block;
-font-size: 0.68rem;
+@media (orientation: portrait) {
+.settings-panel { right: 16px; top: 56px; }
+}
+
+.s-label {
+font-size: 0.65rem;
 letter-spacing: 0.14em;
 text-transform: uppercase;
 color: #444;
-margin-bottom: 8px;
-margin-top: 16px;
+margin-bottom: 7px;
+margin-top: 14px;
+display: block;
 }
-.settings-panel label:first-child { margin-top: 0; }
+.s-label:first-child { margin-top: 0; }
 
 .settings-panel input,
 .settings-panel select {
 width: 100%;
 background: #0d0d0d;
-border: 1px solid #252525;
+border: 1px solid #242424;
 border-radius: 8px;
-padding: 10px 12px;
-color: #fff;
+padding: 9px 12px;
+color: #ddd;
 font-family: ‘Inter’, sans-serif;
-font-size: 0.88rem;
+font-size: 0.85rem;
 outline: none;
 }
 .settings-panel input:focus,
-.settings-panel select:focus { border-color: #444; }
+.settings-panel select:focus { border-color: #3a3a3a; }
 .settings-panel select option { background: #161616; }
 
-.btn-save {
-width: 100%;
-margin-top: 14px;
-padding: 10px;
-background: #fff;
-color: #000;
-border: none;
+/* Mode toggle inside settings */
+.mode-toggle {
+display: flex;
+background: #0d0d0d;
+border: 1px solid #242424;
 border-radius: 8px;
+overflow: hidden;
+}
+.mode-btn {
+flex: 1; padding: 9px 0;
+border: none; background: transparent;
+color: #444;
 font-family: ‘Inter’, sans-serif;
-font-size: 0.85rem;
-font-weight: 500;
+font-size: 0.78rem;
+font-weight: 400;
 cursor: pointer;
-transition: opacity 0.2s;
+transition: all 0.2s;
+letter-spacing: 0.04em;
+}
+.mode-btn.active { background: #1e1e1e; color: #ddd; }
+
+.btn-save {
+width: 100%; margin-top: 14px; padding: 9px;
+background: #fff; color: #000;
+border: none; border-radius: 8px;
+font-family: ‘Inter’, sans-serif;
+font-size: 0.82rem; font-weight: 500;
+cursor: pointer; transition: opacity 0.2s;
 }
 .btn-save:hover { opacity: 0.85; }
 
-/* Main area */
-.main {
+/* ══ AYAH LIST ═════════════════════════════════════════ */
+.ayah-list {
 flex: 1;
+display: flex;
+flex-direction: column;
+justify-content: center;
+gap: 32px;
+padding: 12px 0 24px;
+min-height: 0;
+}
+
+/* single ayah block */
+.ayah-block {
+opacity: 0;
+transform: translateY(10px);
+animation: fadeUp 0.55s ease forwards;
+}
+@keyframes fadeUp {
+to { opacity: 1; transform: translateY(0); }
+}
+
+.arabic-line {
+font-family: ‘Amiri’, serif;
+font-size: clamp(1.4rem, 3.5vw, 2.1rem);
+line-height: 1.85;
+direction: rtl;
+color: #f0f0f0;
+margin-bottom: 10px;
+}
+
+.trans-line {
+font-size: clamp(0.88rem, 1.8vw, 1rem);
+line-height: 1.7;
+color: #aaa;
+font-weight: 300;
+}
+
+.ref-line {
+margin-top: 8px;
+font-size: 0.62rem;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: #2e2e2e;
+}
+
+/* divider between ayahs */
+.ayah-block + .ayah-block {
+border-top: 1px solid #1a1a1a;
+padding-top: 32px;
+}
+
+/* ══ IDLE STATE ════════════════════════════════════════ */
+.idle-wrap {
+flex: 1;
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+justify-content: center;
+gap: 10px;
+}
+.idle-dots { display: flex; gap: 6px; align-items: center; }
+.idle-dots span {
+width: 4px; height: 4px; border-radius: 50%;
+background: #282828;
+animation: dp 1.4s ease-in-out infinite;
+}
+.idle-dots span:nth-child(2) { animation-delay: 0.2s; }
+.idle-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dp {
+0%,80%,100% { opacity:0.3; transform:scale(0.8); }
+40% { opacity:1; transform:scale(1); }
+}
+.idle-dots.live span { background: #ccc; }
+.idle-text {
+font-size: 0.7rem;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: #2e2e2e;
+}
+
+/* ══ RIGHT SIDEBAR — controls ══════════════════════════ */
+.sidebar {
+border-left: 1px solid #161616;
 display: flex;
 flex-direction: column;
 align-items: center;
 justify-content: center;
-padding: 20px 28px 80px;
-text-align: center;
+gap: 20px;
+padding: 20px 0;
+flex-shrink: 0;
 }
 
-/* Ayah display */
-.ayah-wrap {
-width: 100%;
-max-width: 580px;
-}
-
-.arabic-text {
-font-family: ‘Amiri’, serif;
-font-size: clamp(1.5rem, 5.5vw, 2.4rem);
-line-height: 2;
-direction: rtl;
-color: #fff;
-opacity: 0;
-transform: translateY(10px);
-transition: opacity 0.6s ease, transform 0.6s ease;
-}
-
-.translation-text {
-margin-top: 20px;
-font-size: clamp(0.9rem, 2.8vw, 1.05rem);
-line-height: 1.75;
-color: #666;
-font-weight: 300;
-opacity: 0;
-transform: translateY(10px);
-transition: opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s;
-}
-
-.ref-text {
-margin-top: 20px;
-font-size: 0.68rem;
-letter-spacing: 0.16em;
-text-transform: uppercase;
-color: #2e2e2e;
-opacity: 0;
-transition: opacity 0.6s ease 0.3s;
-}
-
-.ayah-wrap.show .arabic-text,
-.ayah-wrap.show .translation-text,
-.ayah-wrap.show .ref-text {
-opacity: 1;
-transform: translateY(0);
-}
-
-/* Idle state */
-.idle-dots {
-display: flex;
-gap: 7px;
-align-items: center;
-justify-content: center;
-margin-bottom: 14px;
-}
-.idle-dots span {
-width: 4px; height: 4px;
-border-radius: 50%;
-background: #2a2a2a;
-animation: dot-pulse 1.4s ease-in-out infinite;
-}
-.idle-dots span:nth-child(2) { animation-delay: 0.2s; }
-.idle-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes dot-pulse {
-0%, 80%, 100% { opacity: 0.3; transform: scale(0.85); }
-40% { opacity: 1; transform: scale(1); }
-}
-
-.idle-dots.active span { background: #fff; }
-
-.idle-label {
-font-size: 0.7rem;
-letter-spacing: 0.18em;
-text-transform: uppercase;
-color: #2e2e2e;
-}
-
-/* Bottom */
-.bottom {
-position: fixed;
-bottom: 0; left: 0; right: 0;
-padding: 20px 24px 44px;
-display: flex;
-align-items: center;
-justify-content: center;
-gap: 28px;
-background: linear-gradient(to top, #0d0d0d 60%, transparent);
-}
-
+/* Mic */
 .mic-btn {
-width: 68px; height: 68px;
+width: 60px; height: 60px;
 border-radius: 50%;
-border: 1.5px solid #222;
+border: 1.5px solid #242424;
 background: #111;
 cursor: pointer;
 display: flex; align-items: center; justify-content: center;
@@ -217,71 +256,37 @@ transition: all 0.25s;
 position: relative;
 flex-shrink: 0;
 }
-.mic-btn svg { width: 24px; height: 24px; fill: #fff; transition: fill 0.2s; }
+.mic-btn svg { width: 22px; height: 22px; fill: #ccc; transition: fill 0.2s; }
+.mic-btn:hover { border-color: #555; }
 
-.mic-btn.on {
-background: #fff;
-border-color: #fff;
-}
+.mic-btn.on { background: #f0f0f0; border-color: #f0f0f0; }
 .mic-btn.on svg { fill: #000; }
 .mic-btn.on::after {
 content: ‘’;
-position: absolute;
-inset: -6px;
+position: absolute; inset: -7px;
 border-radius: 50%;
-border: 1px solid rgba(255,255,255,0.12);
-animation: mic-ring 1.6s ease-out infinite;
+border: 1px solid rgba(255,255,255,0.1);
+animation: ring 1.8s ease-out infinite;
 }
-@keyframes mic-ring {
+@keyframes ring {
 0% { transform: scale(1); opacity: 1; }
-100% { transform: scale(1.5); opacity: 0; }
+100% { transform: scale(1.55); opacity: 0; }
 }
-
 .mic-btn.thinking { border-color: #1e1e1e; }
 .mic-btn.thinking svg { fill: #333; }
 
+/* Timer */
 .timer {
-font-size: 0.72rem;
+font-size: 0.65rem;
 color: #2e2e2e;
-letter-spacing: 0.1em;
-font-variant-numeric: tabular-nums;
-width: 36px;
-}
-
-/* Mode toggle */
-.mode-row {
-width: 36px;
-display: flex;
-align-items: center;
-justify-content: center;
-}
-.mode-pill {
-display: flex;
-background: #111;
-border: 1px solid #1e1e1e;
-border-radius: 16px;
-overflow: hidden;
-}
-.mpb {
-padding: 5px 10px;
-border: none; background: transparent;
-color: #333;
-font-family: ‘Inter’, sans-serif;
-font-size: 0.62rem;
 letter-spacing: 0.08em;
-text-transform: uppercase;
-cursor: pointer;
-transition: all 0.2s;
-white-space: nowrap;
+font-variant-numeric: tabular-nums;
+text-align: center;
 }
-.mpb.on { background: #1e1e1e; color: #aaa; }
 
 /* Overlay */
-.overlay {
-display: none;
-position: fixed; inset: 0; z-index: 90;
-}
-.overlay.open { display: block; }
+.overlay { display:none; position:fixed; inset:0; z-index:200; }
+.overlay.open { display:block; }
 </style>
 
 </head>
@@ -289,118 +294,124 @@ position: fixed; inset: 0; z-index: 90;
 
 <div class="overlay" id="overlay" onclick="closeSettings()"></div>
 
-<!-- Top -->
+<div class="app">
 
-<div class="topbar">
-  <span class="app-title">Quran Live</span>
-  <div style="position:relative">
-    <button class="gear-btn" id="gearBtn" onclick="toggleSettings()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
+  <!-- LEFT: content -->
+
+  <div class="content">
+    <div class="content-top">
+      <span class="app-title">Quran Live</span>
+      <div style="position:relative">
+        <button class="gear-btn" id="gearBtn" onclick="toggleSettings()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
 
 ```
-<div class="settings-panel" id="settingsPanel">
-  <label>OpenAI API Key</label>
-  <input type="password" id="apiKey" placeholder="sk-..."/>
-  <label>Язык перевода</label>
-  <select id="langSelect">
-    <option value="ru">Русский</option>
-    <option value="en">English</option>
-    <option value="tr">Türkçe</option>
-    <option value="uz">O'zbekcha</option>
-    <option value="kk">Қазақша</option>
-    <option value="tj">Тоҷикӣ</option>
-    <option value="de">Deutsch</option>
-    <option value="fr">Français</option>
-  </select>
-  <button class="btn-save" onclick="saveSettings()">Сохранить</button>
+    <div class="settings-panel" id="settingsPanel">
+      <span class="s-label">OpenAI API Key</span>
+      <input type="password" id="apiKey" placeholder="sk-..."/>
+
+      <span class="s-label">Язык перевода</span>
+      <select id="langSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="tr">Türkçe</option>
+        <option value="uz">O'zbekcha</option>
+        <option value="kk">Қазақша</option>
+        <option value="tj">Тоҷикӣ</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+      </select>
+
+      <span class="s-label">Режим</span>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mManual" onclick="setMode('manual')">Ручной</button>
+        <button class="mode-btn" id="mAuto" onclick="setMode('auto')">Авто</button>
+      </div>
+
+      <button class="btn-save" onclick="saveSettings()">Сохранить</button>
+    </div>
+  </div>
 </div>
+
+<!-- Idle -->
+<div class="idle-wrap" id="idleWrap">
+  <div class="idle-dots" id="idleDots"><span></span><span></span><span></span></div>
+  <div class="idle-text" id="idleText">Нажмите микрофон</div>
+</div>
+
+<!-- Ayahs -->
+<div class="ayah-list" id="ayahList" style="display:none"></div>
 ```
 
   </div>
-</div>
 
-<!-- Content -->
+  <!-- RIGHT: sidebar controls -->
 
-<div class="main" id="mainArea">
-  <!-- Idle -->
-  <div id="idleBlock">
-    <div class="idle-dots" id="idleDots">
-      <span></span><span></span><span></span>
-    </div>
-    <div class="idle-label" id="idleLabel">Нажмите для начала</div>
+  <div class="sidebar">
+    <div class="timer" id="timerEl"></div>
+
+```
+<button class="mic-btn" id="micBtn" onclick="toggleRec()">
+  <svg viewBox="0 0 24 24">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/>
+  </svg>
+</button>
+```
+
   </div>
 
-  <!-- Ayah -->
-
-  <div class="ayah-wrap" id="ayahWrap" style="display:none">
-    <div class="arabic-text" id="arabicEl"></div>
-    <div class="translation-text" id="transEl"></div>
-    <div class="ref-text" id="refEl"></div>
-  </div>
-</div>
-
-<!-- Bottom -->
-
-<div class="bottom">
-  <div class="timer" id="timerEl"></div>
-
-  <button class="mic-btn" id="micBtn" onclick="toggleRec()">
-    <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/></svg>
-  </button>
-
-  <div class="mode-row">
-    <div class="mode-pill" id="modePill" style="display:none">
-      <button class="mpb on" id="mManual" onclick="setMode('manual')">Руч</button>
-      <button class="mpb" id="mAuto" onclick="setMode('auto')">Авто</button>
-    </div>
-  </div>
 </div>
 
 <script>
+// ── State ────────────────────────────────────────────
 let apiKey = localStorage.getItem('qk') || '';
+let mode   = localStorage.getItem('qmode') || 'manual';
 let mediaRec = null;
-let allChunks = [];
-let pendChunks = [];
-let recOn = false;
-let procOn = false;
-let mode = 'manual';
+let allChunks = [], pendChunks = [];
+let recOn = false, procOn = false;
 let timerSec = 0, timerIv = null, autoIv = null;
 let lastRef = null;
 let mime = 'audio/mp4';
 
+// init
 document.getElementById('apiKey').value = apiKey;
+applyMode(mode);
 
-// Settings
+// ── Settings ─────────────────────────────────────────
 function toggleSettings() {
-  document.getElementById('settingsPanel').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('open');
+  const open = document.getElementById('settingsPanel').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('open', open);
+  document.getElementById('gearBtn').classList.toggle('open', open);
 }
 function closeSettings() {
   document.getElementById('settingsPanel').classList.remove('open');
   document.getElementById('overlay').classList.remove('open');
+  document.getElementById('gearBtn').classList.remove('open');
 }
 function saveSettings() {
   apiKey = document.getElementById('apiKey').value.trim();
   localStorage.setItem('qk', apiKey);
+  localStorage.setItem('qmode', mode);
   closeSettings();
 }
-
-// Mode
 function setMode(m) {
   mode = m;
-  document.getElementById('mManual').classList.toggle('on', m==='manual');
-  document.getElementById('mAuto').classList.toggle('on', m==='auto');
+  applyMode(m);
+}
+function applyMode(m) {
+  document.getElementById('mManual').classList.toggle('active', m === 'manual');
+  document.getElementById('mAuto').classList.toggle('active', m === 'auto');
 }
 
-// Record
+// ── Recording ─────────────────────────────────────────
 async function toggleRec() {
   if (recOn) {
-    if (mode === 'manual') await stopProcess();
-    else stopStream();
+    mode === 'manual' ? await stopProcess() : stopStream();
   } else {
     await startRec();
   }
@@ -412,10 +423,9 @@ async function startRec() {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
     });
-
-    allChunks = []; pendChunks = [];
+    allChunks = []; pendChunks = []; lastRef = null;
     const m = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
-            : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+            : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
     mime = m || 'audio/mp4';
     mediaRec = new MediaRecorder(stream, m ? { mimeType: m } : {});
     mediaRec.ondataavailable = e => {
@@ -423,10 +433,8 @@ async function startRec() {
     };
     mediaRec.start(100);
     recOn = true;
-    lastRef = null;
 
     document.getElementById('micBtn').classList.add('on');
-    document.getElementById('modePill').style.display = 'flex';
     setIdle('Слушаем...', true);
 
     timerSec = 0;
@@ -437,12 +445,11 @@ async function startRec() {
       document.getElementById('timerEl').textContent = mm+':'+ss;
     }, 1000);
 
-    // Auto: slice every 5s
     if (mode === 'auto') {
       autoIv = setInterval(() => {
         if (!procOn && pendChunks.length > 0) {
           const b = [...pendChunks]; pendChunks = [];
-          processAudio(b);
+          processAudio(b, false);
         }
       }, 5000);
     }
@@ -454,18 +461,17 @@ async function stopProcess() {
   clearInterval(timerIv); clearInterval(autoIv);
   document.getElementById('timerEl').textContent = '';
   if (mediaRec && mediaRec.state !== 'inactive') {
-    mediaRec.stop();
-    mediaRec.stream.getTracks().forEach(t => t.stop());
+    mediaRec.stop(); mediaRec.stream.getTracks().forEach(t => t.stop());
   }
   document.getElementById('micBtn').classList.remove('on');
   document.getElementById('micBtn').classList.add('thinking');
-  document.getElementById('modePill').style.display = 'none';
   setIdle('Распознаём...', false);
 
   await new Promise(r => setTimeout(r, 350));
   const ch = [...allChunks]; allChunks = [];
-  await processAudio(ch);
+  await processAudio(ch, true); // true = manual (return ALL ayahs)
   document.getElementById('micBtn').classList.remove('thinking');
+  if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
 }
 
 function stopStream() {
@@ -473,31 +479,28 @@ function stopStream() {
   clearInterval(timerIv); clearInterval(autoIv);
   document.getElementById('timerEl').textContent = '';
   if (mediaRec && mediaRec.state !== 'inactive') {
-    mediaRec.stop();
-    mediaRec.stream.getTracks().forEach(t => t.stop());
+    mediaRec.stop(); mediaRec.stream.getTracks().forEach(t => t.stop());
   }
   document.getElementById('micBtn').classList.remove('on');
-  document.getElementById('modePill').style.display = 'none';
-  const hasAyah = document.getElementById('ayahWrap').style.display !== 'none';
-  if (!hasAyah) setIdle('Нажмите для начала', false);
+  if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
 }
 
-// Process
-async function processAudio(chunks) {
+// ── Process ───────────────────────────────────────────
+async function processAudio(chunks, isManual) {
   if (!chunks.length || procOn) return;
   procOn = true;
 
   try {
-    const ext = mime.includes('webm') ? 'webm' : 'mp4';
+    const ext  = mime.includes('webm') ? 'webm' : 'mp4';
     const blob = new Blob(chunks, { type: mime });
-    const fd = new FormData();
+    const fd   = new FormData();
     fd.append('file', blob, 'a.' + ext);
     fd.append('model', 'whisper-1');
     fd.append('language', 'ar');
     fd.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
 
     const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST', headers: { 'Authorization': 'Bearer ' + apiKey }, body: fd
+      method: 'POST', headers: { Authorization: 'Bearer ' + apiKey }, body: fd
     });
     if (!wr.ok) { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
 
@@ -505,65 +508,111 @@ async function processAudio(chunks) {
     if (!text?.trim()) { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
 
     const lang = document.getElementById('langSelect').value;
-    const lm = { ru:'Russian',en:'English',tr:'Turkish',uz:'Uzbek',kk:'Kazakh',tj:'Tajik',de:'German',fr:'French' };
+    const lm = { ru:'Russian', en:'English', tr:'Turkish', uz:'Uzbek', kk:'Kazakh', tj:'Tajik', de:'German', fr:'French' };
     const ln = lm[lang] || 'Russian';
-    const ctx = lastRef ? `Previous: Surah ${lastRef.s} Ayah ${lastRef.a}. Next is likely nearby.` : '';
+    const ctx = lastRef ? `Previous ayah: Surah ${lastRef.s} Ayah ${lastRef.a}. Next likely nearby.` : '';
+
+    // Manual: ask for ALL ayahs in the recording; Auto: single best match
+    const systemPrompt = isManual
+      ? `You are a Quran expert. The user recorded multiple ayahs being recited.
+Identify ALL Quran ayahs present in the transcription (could be 1 to 10+).
+Return COMPLETE full text for each ayah even if only partially heard.
+${ctx}
+Respond ONLY with JSON array (no markdown):
+[{"s":2,"a":255,"name":"Al-Baqarah","arabic":"FULL AYAH TEXT","tr":"translation in ${ln}"},...]
+If nothing matches: []`
+      : `You are a Quran expert. Find the single best matching Quran ayah for this transcription.
+Return COMPLETE full ayah text always, even if only part was heard.
+${ctx}
+Respond ONLY with JSON (no markdown):
+{"found":true,"s":2,"a":255,"name":"Al-Baqarah","arabic":"FULL AYAH","tr":"translation in ${ln}"}
+If no match: {"found":false}`;
 
     const gr = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'gpt-4o', max_tokens: 600,
+        model: 'gpt-4o', max_tokens: isManual ? 2000 : 600,
         messages: [
-          { role: 'system', content: `Quran expert. Match transcription to Quran.
-RULES: Return COMPLETE full ayah text always. Be generous with errors/partial text.
-${ctx}
-If matched, respond ONLY JSON no markdown:
-{"found":true,"s":2,"a":255,"name":"Al-Baqarah","arabic":"FULL AYAH","tr":"translation in ${ln}"}
-If no match: {"found":false}` },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: 'Transcription: "' + text.trim() + '"' }
         ]
       })
     });
     if (!gr.ok) { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
 
-    const gd = await gr.json();
-    let res;
-    try { res = JSON.parse((gd.choices[0]?.message?.content||'{}').replace(/```json|```/g,'').trim()); }
-    catch { procOn = false; if (recOn) setIdle('Слушаем...', true); return; }
+    const gd  = await gr.json();
+    const raw = (gd.choices[0]?.message?.content || '').replace(/```json|```/g,'').trim();
 
-    if (res.found) {
-      const ref = res.s + ':' + res.a;
-      // Skip duplicate in auto mode
-      if (mode === 'auto' && lastRef && lastRef.s+':'+lastRef.a === ref) {
-        procOn = false; setIdle('Слушаем...', true); return;
+    if (isManual) {
+      // Expect array
+      let arr = [];
+      try { arr = JSON.parse(raw); } catch { /* silent */ }
+      if (Array.isArray(arr) && arr.length > 0) {
+        // Clear and show all
+        clearAyahs();
+        arr.forEach((r, i) => {
+          setTimeout(() => addAyahBlock(r), i * 120);
+        });
+        if (arr.length > 0) lastRef = { s: arr[arr.length-1].s, a: arr[arr.length-1].a };
       }
-      lastRef = { s: res.s, a: res.a };
-      showAyah(res);
+    } else {
+      // Single ayah auto mode
+      let res = {};
+      try { res = JSON.parse(raw); } catch { /* silent */ }
+      if (res.found) {
+        const ref = res.s + ':' + res.a;
+        if (lastRef && lastRef.s+':'+lastRef.a === ref) {
+          // Same ayah — skip
+        } else {
+          lastRef = { s: res.s, a: res.a };
+          clearAyahs();
+          addAyahBlock(res);
+        }
+      }
     }
-    // No match = keep silent, keep listening
+
   } catch(e) { /* silent */ }
 
   procOn = false;
   if (recOn && mode === 'auto') setIdle('Слушаем...', true);
 }
 
-function showAyah(res) {
-  document.getElementById('idleBlock').style.display = 'none';
-  const wrap = document.getElementById('ayahWrap');
-  wrap.style.display = 'block';
-  wrap.classList.remove('show');
-
-  document.getElementById('arabicEl').textContent = res.arabic;
-  document.getElementById('transEl').textContent = res.tr;
-  document.getElementById('refEl').textContent = res.name + ' · ' + res.s + ':' + res.a;
-
-  requestAnimationFrame(() => requestAnimationFrame(() => wrap.classList.add('show')));
+// ── Render ────────────────────────────────────────────
+function clearAyahs() {
+  const list = document.getElementById('ayahList');
+  const idle = document.getElementById('idleWrap');
+  list.innerHTML = '';
+  list.style.display = 'none';
+  idle.style.display = 'flex';
 }
 
-function setIdle(label, active) {
-  document.getElementById('idleLabel').textContent = label;
-  document.getElementById('idleDots').classList.toggle('active', active);
+function addAyahBlock(r) {
+  const list = document.getElementById('ayahList');
+  const idle = document.getElementById('idleWrap');
+
+  // Show list, hide idle
+  idle.style.display = 'none';
+  list.style.display = 'flex';
+
+  const block = document.createElement('div');
+  block.className = 'ayah-block';
+  block.innerHTML = `
+    <div class="arabic-line">${r.arabic}</div>
+    <div class="trans-line">${r.tr}</div>
+    <div class="ref-line">${r.name || ''} · ${r.s}:${r.a}</div>
+  `;
+  list.appendChild(block);
+
+  // Scroll to latest
+  setTimeout(() => {
+    block.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, 200);
+}
+
+function setIdle(label, live) {
+  document.getElementById('idleText').textContent = label;
+  document.getElementById('idleDots').classList.toggle('live', live);
 }
 </script>
 
