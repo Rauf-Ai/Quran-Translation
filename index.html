@@ -380,9 +380,11 @@ let timerSec = 0, timerIv = null, autoIv = null;
 let mime = 'audio/mp4';
 
 // Live mode state
-let shownAyahs = [];        // [{s, a}] all shown so far this session
-let lastConfirmed = null;   // last GPT-confirmed {s, a, name}
-let predictedBlock = null;  // DOM element of the predicted (dim) next ayah
+let shownAyahs = [];
+let lastConfirmed = null;
+let predictedBlock = null;
+let liveQueue = [];       // queue of chunk batches waiting to be processed
+let liveRunning = false;  // is the queue worker running
 
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
@@ -433,6 +435,7 @@ async function startRec() {
     });
     allChunks = []; pendChunks = [];
     shownAyahs = []; lastConfirmed = null; predictedBlock = null;
+    liveQueue = []; liveRunning = false;
 
     const m = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
             : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
@@ -456,13 +459,7 @@ async function startRec() {
     }, 1000);
 
     if (mode === 'auto') {
-      // First slice after 4s, then every 4s — keeps up with recitation pace
-      autoIv = setInterval(() => {
-        if (pendChunks.length > 0 && !procOn) {
-          const b = [...pendChunks]; pendChunks = [];
-          processLive(b);
-        }
-      }, 4000);
+      startSilenceDetection(stream);
     }
   } catch(e) { alert('Микрофон недоступен: ' + e.message); }
 }
@@ -487,7 +484,10 @@ async function stopManual() {
 
 function stopLive() {
   recOn = false;
-  clearInterval(timerIv); clearInterval(autoIv);
+  clearInterval(timerIv);
+  clearInterval(autoIv);
+  if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
   document.getElementById('timerEl').textContent = '';
   if (mediaRec && mediaRec.state !== 'inactive') {
     mediaRec.stop(); mediaRec.stream.getTracks().forEach(t => t.stop());
@@ -496,13 +496,75 @@ function stopLive() {
   if (!document.getElementById('ayahList').children.length) setIdle('Нажмите микрофон', false);
 }
 
+// ── Silence detection ─────────────────────────────────
+let audioCtx = null;
+let silenceTimer = null;
+let wasSpeaking = false;
+const SILENCE_THRESHOLD = 0.01;  // RMS below this = silence
+const SILENCE_DURATION  = 1200;  // ms of silence = end of ayah
+const MIN_AYAH_MS       = 1500;  // don't slice if < 1.5s of audio
+let sliceStartTime = 0;
+
+function startSilenceDetection(stream) {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source   = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 512;
+  source.connect(analyser);
+
+  const buf = new Float32Array(analyser.fftSize);
+  sliceStartTime = Date.now();
+
+  function getRMS() {
+    analyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    return Math.sqrt(sum / buf.length);
+  }
+
+  autoIv = setInterval(() => {
+    if (!recOn) return;
+    const rms = getRMS();
+    const isSpeaking = rms > SILENCE_THRESHOLD;
+
+    if (isSpeaking) {
+      wasSpeaking = true;
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    } else if (wasSpeaking && !silenceTimer) {
+      // Silence started — wait SILENCE_DURATION then slice
+      silenceTimer = setTimeout(() => {
+        silenceTimer = null;
+        const elapsed = Date.now() - sliceStartTime;
+        if (pendChunks.length > 0 && elapsed >= MIN_AYAH_MS) {
+          const b = [...pendChunks]; pendChunks = [];
+          sliceStartTime = Date.now();
+          wasSpeaking = false;
+          liveQueue.push(b);
+          if (liveQueue.length > 4) liveQueue.shift();
+          runLiveQueue();
+        }
+      }, SILENCE_DURATION);
+    }
+  }, 100); // check every 100ms
+}
+
+// ── Queue worker for Live mode ─────────────────────────
+async function runLiveQueue() {
+  if (liveRunning) return; // already running
+  liveRunning = true;
+  while (liveQueue.length > 0) {
+    const batch = liveQueue.shift();
+    await processLive(batch);
+  }
+  liveRunning = false;
+}
+
 // ── MANUAL MODE: transcribe everything, return all ayahs ──
 async function processManual(chunks) {
   if (!chunks.length) return;
   procOn = true;
 
-  try {
-    const blob = new Blob(chunks, { type: mime });
+  try {    const blob = new Blob(chunks, { type: mime });
     const fd = new FormData();
     fd.append('file', blob, 'a.' + (mime.includes('webm') ? 'webm' : 'mp4'));
     fd.append('model', 'whisper-1');
@@ -552,7 +614,6 @@ If nothing: []`
 // ── LIVE MODE: process 4s slices, show confirmed + predict next ──
 async function processLive(chunks) {
   if (!chunks.length) return;
-  procOn = true;
 
   try {
     const blob = new Blob(chunks, { type: mime });
@@ -639,8 +700,6 @@ If nothing recognized: {"current":[],"next":null}`
     }
 
   } catch(e) {}
-
-  procOn = false;
 }
 
 // ── Helpers ───────────────────────────────────────────
