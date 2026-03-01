@@ -111,17 +111,12 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v2.4 — локальная база · авто-темп</div>
         </div>
       </div>
     </div>
 
 ```
-<div class="pace-bar" id="paceBar">
-  <div class="pace-dot" id="pd0"></div>
-  <div class="pace-dot" id="pd1"></div>
-  <span class="pace-lbl" id="paceLbl">Калибровка...</span>
-</div>
-
 <div class="idle" id="idle">
   <div class="dots" id="dots"><span></span><span></span><span></span></div>
   <div class="idle-lbl" id="idleLbl">Нажмите микрофон</div>
@@ -219,10 +214,20 @@ function qNext(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>=0&&i<Q
 function qPrev(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>0?QB[i-1]:null;}
 function qFmt(r,lang){if(!r)return null;const tr=lang==="en"?r[5]:r[4];return{s:r[0],a:r[1],name:r[2],arabic:r[3],tr};}
 // ══ Config ════════════════════════════════════
+const APP_VER = 'v2.4';
 let apiKey = localStorage.getItem('qk')||'';
 let mode   = localStorage.getItem('qm')||'manual';
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
+
+// Fixed reading speed: ~6 Arabic chars per second (avg Quran recitation pace)
+// Minimum 2s, maximum 20s per ayah
+const CHARS_PER_SEC = 6;
+function ayahDurationMs(row){ 
+  if(!row)return 4000;
+  const chars=row[3].replace(/\s/g,'').length;
+  return Math.max(2000, Math.min(20000, (chars/CHARS_PER_SEC)*1000));
+}
 
 // ══ Settings ══════════════════════════════════
 function toggleSettings(){
@@ -260,14 +265,9 @@ let silTmr=null,wasSpeaking=false;
 let sliceStart=0;
 let mime='audio/mp4';
 
-// ══ Pace ═══════════════════════════════════════
-let samples=[];      // [{chars,ms}]
-let cpm=null;        // chars per ms, null = not calibrated
-let advTmr=null;     // pace-advance timer
-
 // ══ Window ═════════════════════════════════════
-// Each entry: {s,a} or null
 let win=[null,null,null]; // [prev, cur, nxt]
+let advTmr=null;
 
 // ══ Toggle rec ═════════════════════════════════
 async function toggleRec(){
@@ -279,7 +279,7 @@ async function startRec(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
     allChunks=[];pendChunks=[];win=[null,null,null];
-    samples=[];cpm=null;if(advTmr){clearTimeout(advTmr);advTmr=null;}
+    if(advTmr){clearTimeout(advTmr);advTmr=null;}
 
     const m=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
     mime=m||'audio/mp4';
@@ -290,7 +290,6 @@ async function startRec(){
 
     document.getElementById('mic').classList.add('on');
     setIdle('Слушаем...',true);
-    if(mode==='auto')document.getElementById('paceBar').classList.add('on');
 
     timerSec=0;
     timerIv=setInterval(()=>{
@@ -324,7 +323,6 @@ function stopLive(){
   document.getElementById('tmr').textContent='';
   if(mediaRec?.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
   document.getElementById('mic').classList.remove('on');
-  document.getElementById('paceBar').classList.remove('on');
 }
 
 // ══ Silence detection ══════════════════════════
@@ -347,8 +345,8 @@ function startSilence(stream){
         const dur=Date.now()-sliceStart;
         if(pendChunks.length>0&&dur>=MINSL){
           const b=[...pendChunks];pendChunks=[];
-          const d=dur;sliceStart=Date.now();wasSpeaking=false;
-          doLive(b,d); // fire and forget — no queue needed, silence = natural gap
+          sliceStart=Date.now();wasSpeaking=false;
+          doLive(b); // fire and forget
         }
       },SIL);
     }
@@ -408,11 +406,10 @@ function showList(ayahs){
   });
 }
 
-// ══ LIVE MODE — zero API for navigation ════════
+// ══ LIVE MODE ══════════════════════════════════
 let liveRunning=false;
 
-async function doLive(chunks,durMs){
-  // Serialise: if previous still running, skip (silence gap ensures natural pacing)
+async function doLive(chunks){
   if(liveRunning)return;
   liveRunning=true;
   try{
@@ -428,80 +425,66 @@ async function doLive(chunks,durMs){
 
     const lg=getLang();
     const prevCur=win[1];
-    const ctx=prevCur?`Last confirmed: Surah ${prevCur.s} Ayah ${prevCur.a}.`:'';
+    const ctx=prevCur?`Last confirmed: Surah ${prevCur.s} Ayah ${prevCur.a}. Next ayah is likely ${prevCur.s}:${prevCur.a+1} or close by.`:'';
 
     const gr=await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
-      body:JSON.stringify({model:'gpt-4o',max_tokens:200,messages:[{
+      body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
         role:'system',
-        content:`Quran expert. ${ctx} Identify single ayah being recited. Be generous with errors.
-Return ONLY: {"s":78,"a":1} — nothing else.`
+        content:`Quran expert. ${ctx} Which single ayah is being recited? Be generous with transcription errors.
+Respond ONLY with JSON: {"s":78,"a":3}`
       },{role:'user',content:'"'+text.trim()+'"'}]})
     });
     if(!gr.ok){liveRunning=false;return;}
     const raw=(await gr.json()).choices[0]?.message?.content||'';
-    let cur={};try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{liveRunning=false;return;}
-    if(!cur.s){liveRunning=false;return;}
+    let cur={};
+    try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{liveRunning=false;return;}
+    if(!cur.s||!cur.a){liveRunning=false;return;}
 
-    // Check if same as current — skip
+    // Same ayah still playing — don't reset the advance timer, just let it run
     if(win[1]&&win[1].s===cur.s&&win[1].a===cur.a){liveRunning=false;return;}
 
-    // Cancel pace timer
+    // New ayah confirmed — cancel old timer and set window
     if(advTmr){clearTimeout(advTmr);advTmr=null;}
 
-    // ── Pace calibration ──────────────────────
-    const row=qGet(cur.s,cur.a);
-    const charCount=row?(row[3].replace(/\s/g,'').length):0;
-    if(charCount>0&&durMs>500){
-      samples.push({chars:charCount,ms:durMs});
-      if(samples.length>=2){
-        const tc=samples.reduce((s,x)=>s+x.chars,0);
-        const tm=samples.reduce((s,x)=>s+x.ms,0);
-        cpm=tc/tm;
-        document.getElementById('pd0').classList.add('on');
-        document.getElementById('pd1').classList.add('on');
-        document.getElementById('paceLbl').textContent='Темп: '+Math.round(cpm*1000)+' букв/сек';
-        document.getElementById('paceLbl').className='pace-lbl ok';
-      } else {
-        document.getElementById('pd0').classList.add('on');
-        document.getElementById('paceLbl').textContent='Калибровка (1/2)...';
-      }
-    }
-
-    // ── Update window ─────────────────────────
-    const prevRow=win[1]?qGet(win[1].s,win[1].a):null;
-    const nxtRaw=qNext(cur.s,cur.a);
+    const curRow=qGet(cur.s,cur.a);
+    const nxtRow=qNext(cur.s,cur.a);
+    const prvRow=win[1]?qGet(win[1].s,win[1].a):null;
 
     win=[
-      prevRow ? qFmt(prevRow,lg) : null,
-      qFmt(row,lg),
-      nxtRaw ? qFmt(nxtRaw,lg) : null
+      prvRow?qFmt(prvRow,lg):null,
+      qFmt(curRow,lg)||{s:cur.s,a:cur.a,name:'',arabic:'',tr:''},
+      nxtRow?qFmt(nxtRow,lg):null
     ];
     renderWin();
-
-    // ── Schedule pace advance ─────────────────
-    if(cpm&&nxtRaw){
-      const nxtChars=(nxtRaw[3].replace(/\s/g,'').length);
-      const estMs=nxtChars/cpm;
-      advTmr=setTimeout(()=>paceAdvance(lg),estMs);
-    }
+    scheduleAdvance(nxtRow,lg);
 
   }catch(e){}
   liveRunning=false;
 }
 
-function paceAdvance(lg){
+// Schedule auto-advance based on char count of CURRENT ayah
+// (how long will the reader spend on current before moving to next)
+function scheduleAdvance(nxtRow,lg){
+  if(!nxtRow||!recOn)return;
+  const curRow=win[1]?qGet(win[1].s,win[1].a):null;
+  const ms=ayahDurationMs(curRow); // duration of current ayah = when to show next
+  advTmr=setTimeout(()=>doAdvance(lg),ms);
+}
+
+function doAdvance(lg){
   advTmr=null;
   if(!recOn||!win[2])return;
   const newPrev=win[1];
   const newCur=win[2];
-  const newNxtRaw=newCur?qNext(newCur.s,newCur.a):null;
-  win=[newPrev, newCur, newNxtRaw?qFmt(newNxtRaw,lg):null];
+  const newCurRow=qGet(newCur.s,newCur.a);
+  const newNxtRow=newCur?qNext(newCur.s,newCur.a):null;
+  win=[newPrev, newCur, newNxtRow?qFmt(newNxtRow,lg):null];
   renderWin();
-  // Schedule next
-  if(cpm&&newNxtRaw){
-    const nc=(newNxtRaw[3].replace(/\s/g,'').length);
-    advTmr=setTimeout(()=>paceAdvance(lg),nc/cpm);
+  // Schedule next advance based on new current ayah duration
+  if(newNxtRow){
+    const ms=ayahDurationMs(newCurRow);
+    advTmr=setTimeout(()=>doAdvance(lg),ms);
   }
 }
 
