@@ -661,13 +661,18 @@ h1 { font-size: 1.5rem; }
 // ── State ──────────────────────────────────────────
 let mediaRecorder = null;
 let audioChunks = [];
-let recordingInterval = null;
 let timerInterval = null;
 let timerSeconds = 0;
 let isRecording = false;
 let currentMode = 'manual';
 let continuousTimer = null;
 let apiKey = localStorage.getItem('quran_api_key') || '';
+let mimeUsed = 'audio/mp4';
+
+// Avto-mode state: track last confirmed ayah for prediction
+let lastAyah = null;        // { surah_number, ayah_number }
+let isProcessing = false;   // prevent parallel requests
+let pendingChunks = [];     // buffer while processing
 
 // ── Init ──────────────────────────────────────────
 document.getElementById('apiKey').value = apiKey;
@@ -683,9 +688,8 @@ function setMode(mode) {
   currentMode = mode;
   document.getElementById('manualBtn').classList.toggle('active', mode === 'manual');
   document.getElementById('continuousBtn').classList.toggle('active', mode === 'continuous');
-
   if (mode === 'continuous') {
-    showStatus('В авто-режиме запись делается каждые 8 секунд автоматически', 'info');
+    showStatus('Авто-режим: каждые 5с отрезок отправляется на распознавание', 'info');
   } else {
     hideStatus();
   }
@@ -701,36 +705,29 @@ async function toggleRecording() {
 }
 
 async function startRecording() {
-  if (!apiKey) {
-    showStatus('Введите и сохраните OpenAI API ключ', 'error');
-    return;
-  }
+  if (!apiKey) { showStatus('Введите и сохраните OpenAI API ключ', 'error'); return; }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      audio: { 
-        sampleRate: 16000,
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true
-      } 
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
     });
 
     audioChunks = [];
+    pendingChunks = [];
+    lastAyah = null;
+    isProcessing = false;
 
-    // Detect supported format (iOS Safari doesn't support webm)
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-      ? 'audio/webm'
-      : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : '';
+    const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+               : MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4' : '';
+    mimeUsed = mime || 'audio/mp4';
 
-    mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-
+    mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
     mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) audioChunks.push(e.data);
+      if (e.data.size > 0) {
+        audioChunks.push(e.data);
+        if (currentMode === 'continuous') pendingChunks.push(e.data);
+      }
     };
-
     mediaRecorder.start(100);
     isRecording = true;
 
@@ -740,22 +737,21 @@ async function startRecording() {
     document.getElementById('recStatus').className = 'rec-status active';
     document.getElementById('hintText').textContent = 'Запись идёт... Нажмите снова чтобы остановить';
     document.getElementById('waveform').classList.add('recording');
+    if (currentMode === 'manual') document.getElementById('btnRow').style.display = 'none';
 
-    if (currentMode === 'manual') {
-      document.getElementById('btnRow').style.display = 'none';
-    }
-
-    // Timer
-    timerSeconds = 0;
-    updateTimer();
+    timerSeconds = 0; updateTimer();
     timerInterval = setInterval(updateTimer, 1000);
 
-    // Continuous mode
+    // Continuous: process every 5s without stopping recording
     if (currentMode === 'continuous') {
       document.getElementById('continuousInd').classList.add('active');
       continuousTimer = setInterval(() => {
-        if (isRecording) autoProcess();
-      }, 8000);
+        if (isRecording && !isProcessing && pendingChunks.length > 0) {
+          const batch = [...pendingChunks];
+          pendingChunks = [];
+          processAudio(batch, true); // true = continuous mode
+        }
+      }, 5000);
     }
 
   } catch (err) {
@@ -765,14 +761,11 @@ async function startRecording() {
 
 function stopRecording() {
   if (!mediaRecorder) return;
-
   isRecording = false;
   clearInterval(timerInterval);
   clearInterval(continuousTimer);
-
   mediaRecorder.stop();
   mediaRecorder.stream.getTracks().forEach(t => t.stop());
-
   document.getElementById('micBtn').classList.remove('recording');
   document.getElementById('waveform').classList.remove('recording');
   document.getElementById('continuousInd').classList.remove('active');
@@ -801,18 +794,10 @@ function updateTimer() {
   timerSeconds++;
 }
 
-// ── Auto process (continuous mode) ────────────────
-async function autoProcess() {
-  if (audioChunks.length === 0) return;
-  const chunksToProcess = [...audioChunks];
-  audioChunks = [];
-  await processAudio(chunksToProcess);
-}
-
 async function processRecording() {
   stopRecording();
   await new Promise(r => setTimeout(r, 300));
-  await processAudio([...audioChunks]);
+  await processAudio([...audioChunks], false);
   audioChunks = [];
   document.getElementById('btnRow').style.display = 'none';
   document.getElementById('recStatus').textContent = 'Нажмите для записи';
@@ -821,32 +806,35 @@ async function processRecording() {
 }
 
 // ── Main processing ────────────────────────────────
-async function processAudio(chunks) {
-  if (chunks.length === 0) {
-    showStatus('Запись пустая — попробуйте ещё раз', 'error');
-    return;
-  }
+async function processAudio(chunks, isContinuous = false) {
+  if (chunks.length === 0) return;
+  isProcessing = true;
 
-  // Processing state
-  document.getElementById('micBtn').classList.add('processing');
-  document.getElementById('recStatus').textContent = '◌ Распознавание...';
-  document.getElementById('recStatus').className = 'rec-status processing';
-  document.getElementById('hintText').textContent = 'Анализируем арабскую речь...';
+  if (!isContinuous) {
+    document.getElementById('micBtn').classList.add('processing');
+    document.getElementById('recStatus').textContent = '◌ Распознавание...';
+    document.getElementById('recStatus').className = 'rec-status processing';
+  }
+  document.getElementById('hintText').textContent = '🔍 Распознаём...';
   hideStatus();
 
+  const lang = document.getElementById('langSelect').value;
+  const langNames = {
+    ru: 'Russian', en: 'English', tr: 'Turkish', de: 'German',
+    fr: 'French', ar: 'Arabic', uz: 'Uzbek', kk: 'Kazakh', tj: 'Tajik'
+  };
+  const langName = langNames[lang] || 'Russian';
+
   try {
-    const mimeUsed = mediaRecorder?.mimeType || 'audio/mp4';
-    const ext = mimeUsed.includes('webm') ? 'webm' : mimeUsed.includes('ogg') ? 'ogg' : 'mp4';
+    const ext = mimeUsed.includes('webm') ? 'webm' : 'mp4';
     const blob = new Blob(chunks, { type: mimeUsed });
 
-    // Step 1: Whisper transcription
+    // Step 1: Whisper
     const formData = new FormData();
     formData.append('file', blob, `audio.${ext}`);
     formData.append('model', 'whisper-1');
     formData.append('language', 'ar');
-    formData.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم');
-
-    document.getElementById('hintText').textContent = 'Whisper распознаёт арабский текст...';
+    formData.append('prompt', 'بسم الله الرحمن الرحيم قرآن كريم سورة');
 
     const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -856,124 +844,137 @@ async function processAudio(chunks) {
 
     if (!whisperRes.ok) {
       const err = await whisperRes.json();
-      throw new Error(err.error?.message || 'Ошибка Whisper API');
+      throw new Error(err.error?.message || 'Ошибка Whisper');
     }
 
-    const whisperData = await whisperRes.json();
-    const arabicText = whisperData.text?.trim();
-
-    if (!arabicText) {
-      showStatus('Речь не распознана. Говорите громче или ближе к микрофону.', 'error');
+    const { text: arabicText } = await whisperRes.json();
+    if (!arabicText?.trim()) {
+      if (!isContinuous) showStatus('Речь не распознана. Говорите громче.', 'error');
+      isProcessing = false;
       resetMicState();
       return;
     }
 
-    document.getElementById('hintText').textContent = 'Ищем аят и переводим...';
+    document.getElementById('hintText').textContent = '📖 Ищем аят...';
 
-    // Step 2: Find ayah + translate
-    const lang = document.getElementById('langSelect').value;
-    const langNames = {
-      ru: 'русский', en: 'English', tr: 'Türkçe', de: 'Deutsch',
-      fr: 'Français', ar: 'арабский (оригинал)', uz: "O'zbek", kk: 'Қазақ', tj: 'Тоҷикӣ'
-    };
+    // Build context hint for continuous mode — predict next ayah
+    let contextHint = '';
+    if (isContinuous && lastAyah) {
+      contextHint = `Context: The previous ayah was Surah ${lastAyah.surah_number}, Ayah ${lastAyah.ayah_number}. The next ayah is likely nearby. Use this to improve matching.`;
+    }
 
+    // Step 2: GPT — always return FULL ayah text
     const gptRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o',
-        max_tokens: 600,
+        max_tokens: 700,
         messages: [{
           role: 'system',
-          content: `You are a Quran expert. Given Arabic text transcribed from speech (may have errors), find the closest Quran verse.
+          content: `You are a Quran expert with memorized knowledge of all 6236 ayahs.
 
-IMPORTANT: Even if the transcription has errors or is incomplete, try your best to identify the verse. Be generous in matching.
+CRITICAL RULES:
+1. ALWAYS return the COMPLETE full ayah text in Arabic — never a partial verse, even if only part was heard
+2. If transcription is partial or has errors, identify the most likely ayah and return its COMPLETE text
+3. Be generous in matching — partial text, speech errors, accent differences all count
+4. ${contextHint}
 
-Respond ONLY with valid JSON:
+Respond ONLY with valid JSON (no markdown, no backticks):
 {
   "found": true,
-  "surah_number": 67,
-  "surah_name": "Аль-Мульк",
-  "ayah_number": 19,
-  "arabic": "أَوَلَمْ يَرَوْا إِلَى الطَّيْرِ فَوْقَهُمْ صَافَّاتٍ وَيَقْبِضْنَ",
-  "translation": "translation in ${langNames[lang]}",
+  "surah_number": 2,
+  "surah_name": "Al-Baqarah",
+  "ayah_number": 255,
+  "arabic_full": "COMPLETE full ayah in Arabic with full tashkeel",
+  "translation": "Complete translation in ${langName}",
   "confidence": "high"
 }
 
-If truly cannot match anything, return: {"found": false, "message": "explanation in ${langNames[lang]}"}`
+If nothing matches at all: {"found": false, "message": "brief reason in ${langName}"}`
         }, {
           role: 'user',
-          content: `Transcribed Arabic: "${arabicText}"\nFind the Quran verse and translate to ${langNames[lang]}.`
+          content: `Whisper transcription: "${arabicText.trim()}"\n${contextHint}\nIdentify the Quran ayah and return COMPLETE ayah text + translation in ${langName}.`
         }]
       })
     });
 
     if (!gptRes.ok) {
       const err = await gptRes.json();
-      throw new Error(err.error?.message || 'Ошибка GPT API');
+      throw new Error(err.error?.message || 'Ошибка GPT');
     }
 
     const gptData = await gptRes.json();
-    const rawContent = gptData.choices[0]?.message?.content || '{}';
-    
+    const raw = gptData.choices[0]?.message?.content || '{}';
+
     let result;
     try {
-      result = JSON.parse(rawContent.replace(/```json|```/g, '').trim());
+      result = JSON.parse(raw.replace(/```json|```/g, '').trim());
     } catch {
-      throw new Error('Не удалось разобрать ответ от GPT');
+      throw new Error('Ошибка разбора ответа GPT');
     }
 
-    // Render result
-    renderResult(result, arabicText);
+    // Update lastAyah for next prediction
+    if (result.found) {
+      lastAyah = { surah_number: result.surah_number, ayah_number: result.ayah_number };
+    }
+
+    renderResult(result, arabicText.trim(), isContinuous);
 
   } catch (err) {
-    showStatus('Ошибка: ' + err.message, 'error');
+    if (!isContinuous) showStatus('Ошибка: ' + err.message, 'error');
   }
 
-  resetMicState();
+  isProcessing = false;
+  if (!isContinuous) resetMicState();
+  else document.getElementById('hintText').textContent = 'Слушаем...';
 }
 
-function renderResult(result, recognizedText) {
+function renderResult(result, recognizedText, isContinuous) {
   const container = document.getElementById('results');
+
+  // In continuous mode: update existing card if same ayah, else prepend new
+  if (isContinuous && lastAyah && container.firstChild) {
+    const existing = container.firstChild;
+    const existingRef = existing.dataset.ref;
+    const newRef = result.found ? `${result.surah_number}:${result.ayah_number}` : 'none';
+
+    if (existingRef === newRef && result.found) {
+      // Same ayah — just update recognized text, don't flash new card
+      const recEl = existing.querySelector('.recognized-text-content');
+      if (recEl) recEl.textContent = recognizedText;
+      isProcessing = false;
+      return;
+    }
+  }
 
   const card = document.createElement('div');
   card.className = 'result-card';
+  card.dataset.ref = result.found ? `${result.surah_number}:${result.ayah_number}` : 'none';
 
   if (!result.found) {
     card.innerHTML = `
-      <div class="ayah-ref">⚠ Аят не найден</div>
-      <p style="color:var(--text-dim); font-style:italic">${result.message || 'Попробуйте записать более чётко'}</p>
-      <div class="recognized-text">
-        <span class="recognized-label">Распознанный текст</span>
-        ${recognizedText}
-      </div>
+      <div class="ayah-ref">⚠ Аят не распознан</div>
+      <p style="color:var(--text-dim);font-style:italic;margin-top:8px">${result.message || 'Продолжайте чтение...'}</p>
     `;
   } else {
     const confColor = result.confidence === 'high' ? 'var(--green)' : 'var(--gold)';
     card.innerHTML = `
       <div class="ayah-ref">
-        Сура ${result.surah_number} · Аят ${result.ayah_number} · ${result.surah_name}
-        <span class="confidence-badge" style="color:${confColor}">${result.confidence === 'high' ? '✓ высокая' : '~ средняя'}</span>
+        Сура ${result.surah_number} · ${result.surah_name} · Аят ${result.ayah_number}
+        <span class="confidence-badge" style="color:${confColor}">${result.confidence === 'high' ? '✓' : '~'}</span>
       </div>
-      <div class="arabic-text">${result.arabic}</div>
+      <div class="arabic-text">${result.arabic_full || result.arabic}</div>
       <div class="translation-text">${result.translation}</div>
       <div class="recognized-text">
-        <span class="recognized-label">Распознанный текст (Whisper)</span>
-        ${recognizedText}
+        <span class="recognized-label">Распознано (Whisper)</span>
+        <span class="recognized-text-content">${recognizedText}</span>
       </div>
     `;
   }
 
-  // Prepend (newest first)
   container.insertBefore(card, container.firstChild);
-
-  // Limit to 5 cards
-  while (container.children.length > 5) {
-    container.removeChild(container.lastChild);
-  }
+  while (container.children.length > 8) container.removeChild(container.lastChild);
 }
 
 function resetMicState() {
