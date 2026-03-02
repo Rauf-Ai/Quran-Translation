@@ -110,60 +110,29 @@ color:#222;transition:color .3s;
 #bigMic.listening~#micLabel{color:#333;}
 #bigMic.recognizing~#micLabel{color:#444;}
 
-/* ── Scrollable ayah history (replaces 3-slot stage) ── */
+/* ── 3-slot ayah display ── */
 #ayahFeed{
-flex:1;overflow-y:auto;overflow-x:hidden;
-display:none;flex-direction:column;
-padding:0 20px 40px;
-scroll-behavior:smooth;
+flex:1;overflow:hidden;display:none;flex-direction:column;
+position:relative;touch-action:pan-y;
 }
 #ayahFeed.on{display:flex;}
-/* hide scrollbar */
-#ayahFeed::-webkit-scrollbar{width:0;}
-
-.ayah-item{
-display:flex;flex-direction:column;
-padding:18px 0;
-border-bottom:1px solid #111;
-flex-shrink:0;
-transition:opacity .4s;
-opacity:.22;
+.ayah-slot{
+flex:1;display:flex;flex-direction:column;
+justify-content:center;padding:0 24px;overflow:hidden;
 }
-.ayah-item.cur{opacity:1;}
-.ayah-item.near{opacity:.45;}
-
-/* Translation is primary */
-.ayah-tr{
-font-size:clamp(.82rem,2vw,1rem);line-height:1.7;
-color:#ccc;font-weight:300;
-transition:font-size .4s,color .4s;
-order:1;
-}
-.ayah-item.cur .ayah-tr{
-font-size:clamp(1.1rem,3vw,1.4rem);
-color:#eee;font-weight:400;
-}
-
-/* Arabic is secondary */
-.ayah-ar{
-font-family:‘Amiri’,serif;
-font-size:clamp(.8rem,2vw,.95rem);
-line-height:1.8;direction:rtl;text-align:right;
-color:#333;margin-top:10px;
-transition:font-size .4s,color .4s;
-order:2;
-}
-.ayah-item.cur .ayah-ar{
-font-size:clamp(1rem,2.8vw,1.3rem);
-color:#555;
-}
-
-.ayah-ref{
-margin-top:6px;font-size:.52rem;letter-spacing:.13em;
-text-transform:uppercase;color:#1e1e1e;
-order:3;
-}
-.ayah-item.cur .ayah-ref{color:#2a2a2a;}
+.ayah-slot.prev{opacity:.18;border-bottom:1px solid #0f0f0f;}
+.ayah-slot.cur{opacity:1;border-bottom:1px solid #0f0f0f;}
+.ayah-slot.next{opacity:.18;}
+.ayah-tr{font-size:clamp(.8rem,2.4vw,1rem);line-height:1.7;color:#777;font-weight:300;}
+.ayah-slot.cur .ayah-tr{font-size:clamp(1.05rem,3.2vw,1.3rem);color:#eee;font-weight:400;}
+.ayah-ar{font-family:‘Amiri’,serif;font-size:clamp(.85rem,2.5vw,1rem);line-height:1.9;direction:rtl;text-align:right;color:#222;margin-top:8px;}
+.ayah-slot.cur .ayah-ar{font-size:clamp(1rem,2.8vw,1.2rem);color:#444;}
+.ayah-ref{margin-top:5px;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:#181818;}
+.ayah-slot.cur .ayah-ref{color:#242424;}
+@keyframes slideUp{from{transform:translateY(22px);opacity:0;}to{transform:none;opacity:1;}}
+@keyframes slideDown{from{transform:translateY(-22px);opacity:0;}to{transform:none;opacity:1;}}
+#ayahFeed.slide-up .ayah-slot.cur{animation:slideUp .22s ease;}
+#ayahFeed.slide-down .ayah-slot.cur{animation:slideDown .22s ease;}
 
 /* ── Pause button (shown during live recognition, bottom center) ── */
 #pauseBtn{
@@ -178,50 +147,6 @@ font-family:‘Inter’,sans-serif;user-select:none;
 #pauseBtn:active{opacity:.6;}
 #pauseBtn svg{width:14px;height:14px;fill:#666;flex-shrink:0;}
 #pauseBtn .pb-label{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:#444;}
-
-/* ── Manual correction overlay ── */
-#manualOverlay{
-display:none;position:fixed;inset:0;background:#0a0a0a;
-z-index:200;flex-direction:column;
-}
-#manualOverlay.show{display:flex;}
-#manualHeader{
-flex-shrink:0;padding:14px 20px 10px;
-display:flex;align-items:center;justify-content:space-between;
-border-bottom:1px solid #111;
-}
-#manualHeader span{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:#333;}
-#manualHeader button{background:none;border:none;color:#333;font-size:.7rem;
-font-family:‘Inter’,sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:4px 8px;}
-#manualList{
-flex:1;overflow-y:auto;padding:0 20px 100px;
-}
-#manualList::-webkit-scrollbar{width:0;}
-.m-item{
-padding:16px 0;border-bottom:1px solid #0f0f0f;cursor:pointer;
-opacity:.28;transition:opacity .15s;
-}
-.m-item.sel{opacity:1;}
-.m-item:hover{opacity:.55;}
-.m-tr{font-size:.92rem;line-height:1.65;color:#ccc;margin-bottom:5px;}
-.m-item.sel .m-tr{color:#eee;}
-.m-ar{font-family:‘Amiri’,serif;font-size:.95rem;direction:rtl;text-align:right;color:#333;line-height:1.9;}
-.m-item.sel .m-ar{color:#555;}
-.m-ref{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:#1e1e1e;margin-top:3px;}
-.m-item.sel .m-ref{color:#2e2e2e;}
-#manualFooter{
-position:fixed;bottom:0;left:0;right:0;
-padding:12px 20px 28px;background:#0a0a0a;border-top:1px solid #111;
-display:none;gap:10px;
-}
-#manualOverlay.show #manualFooter{display:flex;}
-#btnCancel,#btnConfirm{
-flex:1;padding:13px;border-radius:10px;border:1px solid #1e1e1e;
-background:#111;color:#777;font-family:‘Inter’,sans-serif;
-font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
-}
-#btnConfirm{background:#fff;color:#000;border-color:#fff;}
-#btnCancel:active,#btnConfirm:active{opacity:.7;}
 
 @keyframes pulse{0%,80%,100%{opacity:.4;transform:scale(.85);}40%{opacity:1;transform:scale(1);}}
 </style>
@@ -303,12 +228,6 @@ font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
 
   <!-- Correction hint: shown on mic screen when paused with position -->
 
-  <div id="editHint" style="display:none;position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:50;">
-    <button onclick="openManual()" style="background:none;border:1px solid #1a1a1a;border-radius:30px;color:#2a2a2a;font-family:'Inter',sans-serif;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;padding:8px 18px;">
-      ✎ выбрать аят вручную
-    </button>
-  </div>
-
   <!-- Pause button (shown during recognition) -->
 
   <button id="pauseBtn" onclick="onPauseBtn()">
@@ -316,21 +235,7 @@ font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
     <span class="pb-label">Пауза</span>
   </button>
 
-  <!-- Manual correction overlay -->
-
-  <div id="manualOverlay">
-    <div id="manualHeader">
-      <span>Выберите аят</span>
-      <button onclick="closeManual()">Отмена</button>
-    </div>
-    <div id="manualList"></div>
-    <div id="manualFooter">
-      <button id="btnCancel" onclick="closeManual()">Отмена</button>
-      <button id="btnConfirm" onclick="confirmManual()">Продолжить с этого аята</button>
-    </div>
-  </div>
-
-</div>
+  <!-- swipe to navigate ayahs --></div>
 
 <script>
 // ══ Quran Database — lazy load from alquran.cloud, cached in localStorage ══
@@ -488,11 +393,15 @@ function showMicScreen(show){
 
 // ── Pause / resume ──
 function onPauseBtn(){
-  // Pause: stop audio/timers but KEEP win position for resume
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
   if(pollIv){clearInterval(pollIv);pollIv=null;}
-  liveState='paused';
+  liveState='idle';
+  anchored=false;
   recOn=false;
+  win=[null,null,null];
+  ayahHistory=[];
+  firstRecognized=false;
+  rollingBuf=[];
   if(mediaRec&&mediaRec.state!=='inactive'){
     mediaRec.stop();
     mediaRec.stream.getTracks().forEach(t=>t.stop());
@@ -501,48 +410,14 @@ function onPauseBtn(){
   showRukuOverlay(false);
   showMicScreen(true);
   setMicState('idle');
-  document.getElementById('micLabel').textContent=
-    win[1]?'Продолжить с '+win[1].name+' '+win[1].s+':'+win[1].a:'Нажмите чтобы слушать';
-  showEditHint(win[1]!=null);
+  document.getElementById('micLabel').textContent='Нажмите чтобы слушать';
 }
 
 // ── Manual correction ──
 let manualSelKey=null;
 const MANUAL_CONTEXT=30; // сколько аятов показываем вокруг текущего
 
-function openManual(){
-  // Build list: current ayah ± MANUAL_CONTEXT
-  const list=document.getElementById('manualList');
-  list.innerHTML='';
-  manualSelKey=win[1]?win[1].s+':'+win[1].a:null;
 
-  const curIdx=win[1]?qIdx(win[1].s,win[1].a):0;
-  const start=Math.max(0,curIdx-MANUAL_CONTEXT);
-  const end=Math.min(QB.length-1,curIdx+MANUAL_CONTEXT);
-  const lg=getLang();
-
-  for(let i=start;i<=end;i++){
-    const r=QB[i];
-    const key=r[0]+':'+r[1];
-    const tr=lg==='en'?r[5]:r[4];
-    const div=document.createElement('div');
-    div.className='m-item'+(key===manualSelKey?' sel':'');
-    div.id='mi-'+key;
-    div.dataset.key=key;
-    div.innerHTML=`<div class="m-tr">${tr||'—'}</div>
-<div class="m-ar">${r[3]||''}</div>
-<div class="m-ref">${r[2]} · ${r[0]}:${r[1]}</div>`;
-    div.onclick=()=>selectManual(key);
-    list.appendChild(div);
-  }
-
-  document.getElementById('manualOverlay').classList.add('show');
-  // Scroll to selected
-  requestAnimationFrame(()=>{
-    const sel=document.getElementById('mi-'+manualSelKey);
-    if(sel)sel.scrollIntoView({block:'center'});
-  });
-}
 
 function selectManual(key){
   if(manualSelKey){
@@ -554,25 +429,9 @@ function selectManual(key){
   if(el)el.classList.add('sel');
 }
 
-function closeManual(){
-  document.getElementById('manualOverlay').classList.remove('show');
-}
 
-function confirmManual(){
-  if(!manualSelKey)return;
-  const [s,a]=manualSelKey.split(':').map(Number);
-  const row=qGet(s,a);
-  if(!row){closeManual();return;}
-  closeManual();
-  const lg=getLang();
-  anchored=true;
-  // Show feed (hide mic screen)
-  showMicScreen(false);
-  showEditHint(false);
-  // Anchor to selected ayah + start advance timer
-  // Timer runs even without mic — helps follow along manually
-  _anchorTo(row,lg);
-}
+
+
 
 function setMicState(state){ // 'idle'|'listening'|'recognizing'
   const bm=document.getElementById('bigMic');
@@ -641,17 +500,7 @@ async function startRec(){
   }
   setMicState('listening');
   showEditHint(false);
-  if(mode==='auto'){
-    startLive();
-    if(resuming&&win[1]){
-      // Resume advance timer from current ayah
-      const curRow=qGet(win[1].s,win[1].a);
-      if(curRow){
-        liveState='running';
-        scheduleAdvance(Math.round(ayahMs(curRow)*0.5),getLang());
-      }
-    }
-  }
+  if(mode==='auto') startLive();
 }
 
 function stopManual(){
@@ -729,7 +578,7 @@ async function manualSearch(text){
 //   4. Аллаху Акбар и Фатиха — всегда приоритет
 
 const CHARS_PER_SEC_LIVE = 7.2;
-const LAG_AYAHS = 2; // компенсация: ~1.5 аята задержки, берём 2 для надёжности
+const LAG_SEC = 0; // задержка компенсации в секундах (0 = без сдвига)
 
 function ayahMs(row){
   if(!row)return 3000;
@@ -743,6 +592,20 @@ function qAdvanceN(s,a,n){
   for(let i=0;i<n;i++){
     const nxt=qNext(row[0],row[1]);
     if(!nxt) break;
+    row=nxt;
+  }
+  return row;
+}
+
+function qAdvanceSec(s,a,lagSec){
+  if(lagSec<=0)return qGet(s,a);
+  let row=qGet(s,a);
+  if(!row)return row;
+  let elapsed=0;
+  while(elapsed<lagSec){
+    elapsed+=ayahMs(row)/1000;
+    const nxt=qNext(row[0],row[1]);
+    if(!nxt)break;
     row=nxt;
   }
   return row;
@@ -866,36 +729,28 @@ function handleAction(res,lg){
       if(!detectedRow)break;
 
       if(!anchored){
-        // Первый якорь: применяем компенсацию задержки
-        const compensated=qAdvanceN(res.s,res.a,LAG_AYAHS)||detectedRow;
-        console.log('[anchor] first anchor',res.s+':'+res.a,'→',compensated[0]+':'+compensated[1]);
+        // Первый якорь — показываем ровно тот аят что распознан
+        const compensated=qAdvanceSec(res.s,res.a,LAG_SEC)||detectedRow;
+        console.log('[anchor]',res.s+':'+res.a,'→',compensated[0]+':'+compensated[1]);
         anchored=true;
         _anchorTo(compensated,lg);
       } else {
-        // Уже бежим: коррекция только вперёд, не назад
         if(!win[1])break;
         const curIdx=qIdx(win[1].s,win[1].a);
         const detIdx=qIdx(res.s,res.a);
-        // GPT слышал аудио LAG_AYAHS назад, поэтому реальная позиция
-        // примерно detIdx + LAG_AYAHS
-        const realIdx=detIdx+LAG_AYAHS;
-        const diff=realIdx-curIdx;
+        const diff=detIdx-curIdx; // без смещения
 
         if(diff>5){
-          // Сильно отстали (>5 аятов) — жёсткая коррекция
-          const compensated=qAdvanceN(res.s,res.a,LAG_AYAHS)||detectedRow;
-          console.log('[poll] hard correction +'+diff+' → jump');
+          const compensated=qAdvanceSec(res.s,res.a,LAG_SEC)||detectedRow;
+          console.log('[poll] hard correction +'+diff);
           _anchorTo(compensated,lg);
-        } else if(diff>2){
-          // Немного отстали — ускоряем таймер (без прыжка в UI)
-          console.log('[poll] soft correction +'+Math.round(diff)+' ayahs, speed up');
+        } else if(diff>1){
+          console.log('[poll] soft speed-up +'+diff);
           if(advTmr){clearTimeout(advTmr);advTmr=null;}
           scheduleAdvance(300,lg);
-        } else if(diff<-3){
-          // GPT вернул сильно позади — игнорируем, не прыгаем назад
-          console.log('[poll] ignore: behind by',Math.round(-diff),'ayahs');
+        } else if(diff<-4){
+          console.log('[poll] ignore behind '+(-diff));
         }
-        // иначе: норма, таймер ведёт правильно
       }
       break;
     }
@@ -948,10 +803,7 @@ function showRukuOverlay(show,label='руку — пауза'){
   else{badge.classList.remove('on');}
 }
 
-function showEditHint(show){
-  const el=document.getElementById('editHint');
-  if(el)el.style.display=show?'flex':'none';
-}
+function showEditHint(show){}
 
 function scheduleAdvance(delayMs,lg){
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
@@ -971,58 +823,81 @@ function doAdvance(lg){
   if(newCurRow)scheduleAdvance(ayahMs(newCurRow),lg);
 }
 
-// ══ Render ══════════════════════════════════════════════
-// ayahHistory is an array of formatted ayah objects (newest last)
-// win[1] = current, win[0] = prev, win[2] = next
+// ══ Render: 3 аята — prev / cur / next ══════════════════
 
-function renderFeed(){
+function slotHTML(ayah){
+  if(!ayah)return '<div class="ayah-tr" style="opacity:.04">—</div>';
+  return `<div class="ayah-tr">${ayah.tr||'—'}</div>
+<div class="ayah-ar">${ayah.arabic||''}</div>
+<div class="ayah-ref">${ayah.name} · ${ayah.s}:${ayah.a}</div>`;
+}
+
+function renderFeed(dir){
   if(!win[1])return;
 
-  // Show the feed, hide mic screen
   if(!firstRecognized){
     firstRecognized=true;
     showMicScreen(false);
+    initFeedScroll();
   }
-  // Update pause button visibility
   const pb=document.getElementById('pauseBtn');
   if(recOn)pb.classList.add('show');
 
-  const curKey=win[1].s+':'+win[1].a;
-
-  // Add cur to history if not already there
-  const alreadyIn=ayahHistory.find(a=>a.s===win[1].s&&a.a===win[1].a);
-  if(!alreadyIn) ayahHistory.push(win[1]);
-
-  // Rebuild feed DOM
   const feed=document.getElementById('ayahFeed');
-  feed.innerHTML='';
-  ayahHistory.forEach(ayah=>{
-    const key=ayah.s+':'+ayah.a;
-    const isCur=key===curKey;
-    const isNear=
-      (win[0]&&win[0].s===ayah.s&&win[0].a===ayah.a)||
-      (win[2]&&win[2].s===ayah.s&&win[2].a===ayah.a);
-    const div=document.createElement('div');
-    div.className='ayah-item'+(isCur?' cur':isNear?' near':'');
-    div.id='ayah-'+key;
-    div.innerHTML=`
-      <div class="ayah-tr">${ayah.tr||'—'}</div>
-      <div class="ayah-ar">${ayah.arabic||''}</div>
-      <div class="ayah-ref">${ayah.name} · ${ayah.s}:${ayah.a}</div>
-    `;
-    feed.appendChild(div);
-  });
+  feed.innerHTML=`
+    <div class="ayah-slot prev">${slotHTML(win[0])}</div>
+    <div class="ayah-slot cur">${slotHTML(win[1])}</div>
+    <div class="ayah-slot next">${slotHTML(win[2])}</div>`;
 
-  // Scroll current ayah into view (centered)
-  requestAnimationFrame(()=>{
-    const curEl=document.getElementById('ayah-'+curKey);
-    if(curEl){
-      curEl.scrollIntoView({behavior:'smooth',block:'center'});
-    }
-  });
+  if(dir){
+    feed.classList.remove('slide-up','slide-down');
+    void feed.offsetWidth;
+    feed.classList.add(dir==='next'?'slide-up':'slide-down');
+  }
 }
 
-// Legacy alias (used by some paths)
+// ── Swipe / scroll navigation ─────────────────────────
+let _navLock=false, _touchY0=0;
+
+function manualNav(dir){
+  if(_navLock)return;
+  _navLock=true;
+  setTimeout(()=>_navLock=false,380);
+  const lg=getLang();
+  if(dir==='next'&&win[2]){
+    const row=qGet(win[2].s,win[2].a);
+    if(!row)return;
+    const nxt=qNext(row[0],row[1]);
+    win=[win[1],win[2],nxt?qFmt(nxt,lg):null];
+    anchored=true;
+    if(advTmr){clearTimeout(advTmr);advTmr=null;}
+    if(recOn){liveState='running';scheduleAdvance(ayahMs(row),lg);}
+    renderFeed('next');
+  } else if(dir==='prev'&&win[0]){
+    const row=qGet(win[0].s,win[0].a);
+    if(!row)return;
+    const prv=qPrev(row[0],row[1]);
+    win=[prv?qFmt(prv,lg):null,win[0],win[1]];
+    anchored=true;
+    if(advTmr){clearTimeout(advTmr);advTmr=null;}
+    if(recOn){liveState='running';scheduleAdvance(ayahMs(row),lg);}
+    renderFeed('prev');
+  }
+}
+
+function initFeedScroll(){
+  const feed=document.getElementById('ayahFeed');
+  feed.addEventListener('touchstart',e=>{_touchY0=e.touches[0].clientY;},{passive:true});
+  feed.addEventListener('touchend',e=>{
+    const dy=e.changedTouches[0].clientY-_touchY0;
+    if(Math.abs(dy)>38)manualNav(dy<0?'next':'prev');
+  },{passive:true});
+  feed.addEventListener('wheel',e=>{
+    e.preventDefault();
+    manualNav(e.deltaY>0?'next':'prev');
+  },{passive:false});
+}
+
 function renderWin(){renderFeed();}
 
 // ══ Init ══════════════════════════════════════════════
