@@ -117,7 +117,7 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v2.9 — отдельный детектор руку</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.0 — единый цикл 5с · локальный детект акбар</div>
         </div>
       </div>
     </div>
@@ -293,7 +293,7 @@ function getLang(){return document.getElementById('lang').value||'ru';}
 
 // ══ Recording state ════════════════════════════
 let mediaRec=null,audioCtx=null;
-let allChunks=[],pendChunks=[];
+let allChunks=[],pendChunks=[],rollingBuf=[];
 let recOn=false;
 let timerSec=0,timerIv=null;
 let sliceStart=0;
@@ -312,17 +312,15 @@ async function startRec(){
   if(!apiKey){alert('Введите API ключ в настройках ⚙️');return;}
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
-    allChunks=[];pendChunks=[];win=[null,null,null];
-    liveState='idle'; savedWin=null;
-    anchorDone=false;anchorRunning=false;
+    allChunks=[];pendChunks=[];rollingBuf=[];win=[null,null,null];
+    liveState='idle';
+    if(pollIv){clearInterval(pollIv);pollIv=null;}
     if(advTmr){clearTimeout(advTmr);advTmr=null;}
-    if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
-    stopRukuDetector();
 
     const m=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
     mime=m||'audio/mp4';
     mediaRec=new MediaRecorder(stream,m?{mimeType:m}:{});
-    mediaRec.ondataavailable=e=>{if(e.data.size>0){allChunks.push(e.data);pendChunks.push(e.data);}};
+    mediaRec.ondataavailable=e=>{if(e.data.size>0){allChunks.push(e.data);pendChunks.push(e.data);rollingBuf.push(e.data);if(rollingBuf.length>60)rollingBuf.shift();}};
     mediaRec.start(100);
     recOn=true;sliceStart=Date.now();
 
@@ -336,7 +334,7 @@ async function startRec(){
         String(Math.floor(timerSec/60)).padStart(2,'0')+':'+String(timerSec%60).padStart(2,'0');
     },1000);
 
-    if(mode==='auto'){startLive();startRukuDetector(stream);}
+    if(mode==='auto')startLive();
   }catch(e){alert('Микрофон: '+e.message);}
 }
 
@@ -355,12 +353,11 @@ async function stopManual(){
 
 function stopLive(){
   recOn=false;clearInterval(timerIv);
-  stopRukuDetector();
-  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
+  if(pollIv){clearInterval(pollIv);pollIv=null;}
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
-  if(audioCtx){audioCtx.close();audioCtx=null;}
-  liveState='idle';
+  liveState='idle'; rollingBuf=[];
   document.getElementById('tmr').textContent='';
+  document.getElementById('rukuBadge').classList.remove('on');
   if(mediaRec?.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
   document.getElementById('mic').classList.remove('on');
 }
@@ -419,251 +416,205 @@ function showList(ayahs){
 }
 
 // ══ LIVE MODE ══════════════════════════════════
-// v2.9: Ruku detection via SEPARATE MediaRecorder — own buffer, never shared
+// v3.0: единый цикл каждые 5с — Whisper слушает, GPT решает действие
 //
-// States:
-//   'idle'      — not started yet
-//   'reciting'  — normal scrolling by timer
-//   'ruku'      — bowing, timer paused, waiting for Fatiha
-//   'fatiha'    — Al-Fatiha being read, wait for it to finish
-//   'anchoring' — doing API anchor call
+// GPT возвращает одно из:
+//   {"action":"recite","s":67,"a":5}  — нашли аят, показываем/корректируем
+//   {"action":"ruku"}                 — Аллаху Акбар / поклон / саджда
+//   {"action":"fatiha"}               — имам читает Аль-Фатиху
+//   {"action":"silence"}              — тишина, неразборчиво, ждём
+//   {"action":"unknown"}              — не Коран, ждём
 
 const CHARS_PER_SEC_LIVE = 7.2;
 function ayahMs(row){
   if(!row)return 3000;
   const chars=row[3].replace(/\s/g,'').length;
-  return Math.max(1200, Math.min(20000,(chars/CHARS_PER_SEC_LIVE)*1000));
+  return Math.max(1200,Math.min(20000,(chars/CHARS_PER_SEC_LIVE)*1000));
 }
+function ayahDurationMs(r){return ayahMs(r);}
 
-let liveState='idle';
-let savedWin=null;
-let anchorDone=false, anchorRunning=false;
-let anchorTimer=null;
+let liveState='idle';   // idle | running | paused
+let pollIv=null;
+let pollRunning=false;
 
-// ── Ruku detector: own MediaRecorder + buffer ──
-let rukuRec=null;         // separate MediaRecorder
-let rukuBuf=[];           // its own audio buffer
-let rukuIv=null;          // check interval
-let rukuChecking=false;   // prevent overlapping checks
+// Stub — no longer needed
+function stopRukuDetector(){}
+function startRukuDetector(){}
+let anchorDone=false,anchorRunning=false,anchorTimer=null;
+function retryAnchor(){}
 
 function startLive(){
   liveState='idle';
-  savedWin=null; anchorDone=false; anchorRunning=false;
-  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
-  anchorTimer=setTimeout(doAnchor,5000);
+  pollRunning=false;
+  if(pollIv){clearInterval(pollIv);pollIv=null;}
+  pollIv=setInterval(doPoll,5000);
 }
 
-async function startRukuDetector(stream){
-  // Clone the stream track into a fresh stream for the ruku recorder
+// ── Main 5s poll ──────────────────────────────
+async function doPoll(){
+  if(!recOn||pollRunning)return;
+  const chunks=[...rollingBuf]; // fresh last ~6s, never stale
+  if(!chunks.length)return;
+
+  pollRunning=true;
+  const lg=getLang();
+
   try{
-    const track=stream.getAudioTracks()[0];
-    const rukuStream=new MediaStream([track]);
-    const m=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':
-             MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
-    rukuRec=new MediaRecorder(rukuStream, m?{mimeType:m}:{});
-    rukuBuf=[];
-    rukuRec.ondataavailable=e=>{if(e.data&&e.data.size>0)rukuBuf.push(e.data);};
-    rukuRec.start(200);
-
-    // Check every 4 seconds — enough audio, not too frequent
-    rukuIv=setInterval(()=>checkForRuku(),4000);
-  }catch(e){console.warn('Ruku detector failed to start:',e);}
-}
-
-function stopRukuDetector(){
-  if(rukuIv){clearInterval(rukuIv);rukuIv=null;}
-  if(rukuRec&&rukuRec.state!=='inactive'){
-    try{rukuRec.stop();}catch(e){}
-  }
-  rukuRec=null; rukuBuf=[];
-}
-
-async function checkForRuku(){
-  if(!recOn||rukuChecking)return;
-  if(liveState==='anchoring')return;
-
-  // Grab last 4s worth of chunks then reset buffer
-  const chunks=[...rukuBuf];
-  rukuBuf=[];
-  if(chunks.length===0)return;
-
-  rukuChecking=true;
-  try{
+    // Step 1: Whisper — no language lock so Allahu Akbar isn't filtered
     const blob=new Blob(chunks,{type:mime});
     const fd=new FormData();
-    fd.append('file',blob,'r.'+(mime.includes('webm')?'webm':'mp4'));
+    fd.append('file',blob,'p.'+(mime.includes('webm')?'webm':'mp4'));
     fd.append('model','whisper-1');
-    fd.append('language','ar');
-    // Strong prompt bias toward these phrases
-    fd.append('prompt','الله أكبر بسم الله الرحمن الرحيم الحمد لله');
-
+    // NO language param — lets Whisper transcribe Arabic + detect Allahu Akbar freely
+    fd.append('prompt','الله أكبر الله أكبر بسم الله الرحمن الرحيم الحمد لله');
     const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',
       {method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
-    if(!wr.ok){rukuChecking=false;return;}
+    if(!wr.ok){pollRunning=false;return;}
     const{text}=await wr.json();
-    if(!text){rukuChecking=false;return;}
+    if(!text?.trim()){pollRunning=false;return;}
 
-    // Normalise: remove diacritics, collapse spaces
-    const t=text.replace(/[\u064B-\u065F]/g,'').replace(/\s+/g,'');
-    console.log('[ruku]',liveState,'→',text.trim().slice(0,60));
+    const raw=text.trim();
+    console.log('[poll]',liveState,'→',raw.slice(0,90));
 
-    // "Allahu Akbar" variants
-    const isAkbar=
-      t.includes('اللهأكبر')||
-      t.includes('أللهأكبر')||
-      t.includes('الاكبر')||
-      /akbar/i.test(text)||
-      /allahu/i.test(text);
+    // Step 2: Fast local check for Allahu Akbar (no GPT needed)
+    const norm=raw.replace(/[\u064B-\u065F]/g,'').replace(/\s+/g,'');
+    const hasAkbar=
+      norm.includes('اللهأكبر')||
+      norm.includes('أللهأكبر')||
+      /\bالله\s*أكبر\b/.test(raw)||
+      /allahu\s*akbar/i.test(raw)||
+      /\bakbar\b/i.test(raw);
 
-    // Al-Fatiha start: Bismillah or Al-Hamdu
-    const isFatiha=
-      t.includes('بسماللهالرحمن')||
-      t.includes('الحمدلله')||
-      t.includes('بسمالله')||
-      /bismillah/i.test(text)||
-      /alhamdu/i.test(text);
-
-    if(isAkbar && liveState==='reciting'){
-      console.log('[ruku] → RUKU detected');
-      onRuku();
-    } else if(isFatiha && liveState==='ruku'){
-      console.log('[ruku] → FATIHA detected');
-      onFatihaStart();
-    } else if(liveState==='fatiha' && !isFatiha){
-      // Something that's NOT fatiha — new surah started
-      console.log('[ruku] → FATIHA ended, new surah');
-      onFatihaEnd();
+    if(hasAkbar){
+      console.log('[poll] AKBAR detected locally →',raw);
+      handleAction({action:'ruku'},lg);
+      pollRunning=false;
+      return;
     }
-  }catch(e){console.warn('[ruku] check error',e);}
-  rukuChecking=false;
+
+    // Step 3: Fast check for Fatiha locally
+    const hasFatiha=
+      norm.includes('الحمدلله')||
+      norm.includes('بسماللهالرحمن')||
+      norm.includes('ربالعالمين')||
+      /alhamdu\s*lillah/i.test(raw);
+
+    if(hasFatiha && liveState==='paused'){
+      console.log('[poll] FATIHA detected locally');
+      handleAction({action:'fatiha'},lg);
+      pollRunning=false;
+      return;
+    }
+
+    // Step 4: GPT identifies which ayah (only for reciting/unknown state)
+    const curCtx=win[1]
+      ?`Currently showing: Surah ${win[1].s} Ayah ${win[1].a}.`
+      :'Nothing shown yet.';
+
+    const gr=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
+      body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
+        role:'system',
+        content:`Quran expert. ${curCtx} Which ayah is being recited? Be generous with errors.
+If Al-Fatiha (surah 1): {"action":"fatiha"}
+If unclear/silence/dhikr: {"action":"silence"}
+Otherwise: {"action":"recite","s":67,"a":3}
+Return ONLY JSON.`
+      },{role:'user',content:`"${raw}"`}]})
+    });
+    if(!gr.ok){pollRunning=false;return;}
+
+    const graw=(await gr.json()).choices[0]?.message?.content||'';
+    let res={};
+    try{res=JSON.parse(graw.replace(/```json|```/g,'').trim());}catch{pollRunning=false;return;}
+    console.log('[poll] GPT →',JSON.stringify(res));
+    handleAction(res,lg);
+
+  }catch(e){console.warn('[poll]',e);}
+  pollRunning=false;
 }
 
-function onRuku(){
-  liveState='ruku';
-  if(advTmr){clearTimeout(advTmr);advTmr=null;}
-  savedWin=[...win];
-  showRukuOverlay(true);
+function handleAction(res,lg){
+  switch(res.action){
+
+    case 'recite':{
+      if(!res.s||!res.a)break;
+      const row=qGet(res.s,res.a);
+      if(!row)break;
+      const curKey=win[1]?win[1].s+':'+win[1].a:null;
+      const newKey=res.s+':'+res.a;
+      if(curKey===newKey){
+        // Timer is on track — nothing to do
+        break;
+      }
+      // Re-anchor to detected position
+      if(advTmr){clearTimeout(advTmr);advTmr=null;}
+      showRukuOverlay(false);
+      liveState='running';
+      const prvRow=qPrev(row[0],row[1]);
+      const nxtRow=qNext(row[0],row[1]);
+      win=[prvRow?qFmt(prvRow,lg):null, qFmt(row,lg), nxtRow?qFmt(nxtRow,lg):null];
+      renderWin();
+      // Assume we're ~halfway through current ayah
+      scheduleAdvance(Math.round(ayahMs(row)*0.5),lg);
+      break;
+    }
+
+    case 'ruku':{
+      if(liveState!=='paused'){
+        liveState='paused';
+        if(advTmr){clearTimeout(advTmr);advTmr=null;}
+        showRukuOverlay(true,'руку / саджда');
+      }
+      break;
+    }
+
+    case 'fatiha':{
+      liveState='paused';
+      if(advTmr){clearTimeout(advTmr);advTmr=null;}
+      showRukuOverlay(false);
+      const f1=qGet(1,1),f2=qGet(1,2);
+      win=[null, f1?qFmt(f1,lg):null, f2?qFmt(f2,lg):null];
+      renderWin();
+      break;
+    }
+
+    case 'silence':
+    default:
+      // No change — let advance timer run
+      break;
+  }
 }
 
-function onFatihaStart(){
-  liveState='fatiha';
-  showRukuOverlay(false);
-  const lg=getLang();
-  const f1=qGet(1,1),f2=qGet(1,2);
-  win=[null, f1?qFmt(f1,lg):null, f2?qFmt(f2,lg):null];
-  renderWin();
-  // Fatiha ~25-30s — fallback timer if detector misses the end
-  setTimeout(()=>{ if(liveState==='fatiha') onFatihaEnd(); }, 32000);
-}
-
-function onFatihaEnd(){
-  liveState='anchoring';
-  allChunks=[]; pendChunks=[];
-  anchorDone=false; anchorRunning=false;
-  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
-  anchorTimer=setTimeout(doAnchor,5000);
-}
-
-function showRukuOverlay(show){
+function showRukuOverlay(show,label='руку — пауза'){
   const badge=document.getElementById('rukuBadge');
   const txt=document.getElementById('rukuTxt');
   if(show){
     badge.classList.add('on');
-    txt.textContent='поклон — пауза';
-    document.getElementById('rfCur').textContent='— руку —';
+    txt.textContent=label;
+    if(win[1])document.getElementById('rfCur').textContent='— '+label+' —';
   }else{
     badge.classList.remove('on');
   }
 }
 
-function ayahDurationMs(row){return ayahMs(row);}
-
-// ── Anchor: identify current position ─────────
-async function doAnchor(){
-  anchorTimer=null;
-  if(!recOn||anchorRunning)return;
-  anchorRunning=true;
-  liveState='anchoring';
-
-  const chunks=[...allChunks];
-  if(!chunks.length){anchorRunning=false;retryAnchor();return;}
-
-  try{
-    const blob=new Blob(chunks,{type:mime});
-    const fd=new FormData();
-    fd.append('file',blob,'a.'+(mime.includes('webm')?'webm':'mp4'));
-    fd.append('model','whisper-1');fd.append('language','ar');
-    fd.append('prompt','بسم الله الرحمن الرحيم قرآن كريم');
-
-    const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',
-      {method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
-    if(!wr.ok){anchorRunning=false;retryAnchor();return;}
-    const{text}=await wr.json();
-    if(!text?.trim()){anchorRunning=false;retryAnchor();return;}
-
-    const gr=await fetch('https://api.openai.com/v1/chat/completions',{
-      method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
-      body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
-        role:'system',
-        content:'Quran expert. Which single ayah is being recited? Respond ONLY JSON: {"s":78,"a":3}'
-      },{role:'user',content:'"'+text.trim()+'"'}]})
-    });
-    if(!gr.ok){anchorRunning=false;retryAnchor();return;}
-
-    const raw=(await gr.json()).choices[0]?.message?.content||'';
-    let cur={};
-    try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{}
-    if(!cur.s||!cur.a){anchorRunning=false;retryAnchor();return;}
-
-    // Catchup: compensate for API delay (~9s)
-    const lg=getLang();
-    const apiDelay=9000;
-    let row=qGet(cur.s,cur.a);
-    let ms=0;
-    while(row && ms<apiDelay){
-      const d=ayahMs(row);
-      if(ms+d>apiDelay)break;
-      ms+=d;
-      const nx=qNext(row[0],row[1]);
-      if(!nx)break;
-      row=nx;
-    }
-
-    const prvRow=row?qPrev(row[0],row[1]):null;
-    const nxtRow=row?qNext(row[0],row[1]):null;
-    win=[prvRow?qFmt(prvRow,lg):null, row?qFmt(row,lg):null, nxtRow?qFmt(nxtRow,lg):null];
-    renderWin();
-    anchorDone=true;
-    liveState='reciting';
-
-    const curDur=ayahMs(row);
-    const remaining=Math.max(500, curDur-(apiDelay-ms));
-    scheduleAdvance(remaining,lg);
-
-  }catch(e){}
-  anchorRunning=false;
-}
-
-function retryAnchor(){
-  if(recOn&&!anchorDone){anchorTimer=setTimeout(doAnchor,4000);}
-}
-
 function scheduleAdvance(delayMs,lg){
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
-  if(!recOn||liveState!=='reciting')return;
+  if(!recOn||liveState==='paused')return;
   advTmr=setTimeout(()=>doAdvance(lg),delayMs);
 }
 
 function doAdvance(lg){
   advTmr=null;
-  if(!recOn||liveState!=='reciting'||!win[2])return;
+  if(!recOn||liveState==='paused'||!win[2])return;
   const newPrev=win[1];
   const newCur=win[2];
   const newCurRow=newCur?qGet(newCur.s,newCur.a):null;
   const newNxtRow=newCurRow?qNext(newCurRow[0],newCurRow[1]):null;
-  win=[newPrev, newCur, newNxtRow?qFmt(newNxtRow,lg):null];
+  win=[newPrev,newCur,newNxtRow?qFmt(newNxtRow,lg):null];
   renderWin();
-  if(newCurRow) scheduleAdvance(ayahMs(newCurRow),lg);
+  if(newCurRow)scheduleAdvance(ayahMs(newCurRow),lg);
 }
 
 // ══ Render 3-slot ═════════════════════════════
