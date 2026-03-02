@@ -117,21 +117,12 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.4 — прогресс загрузки Корана</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.5 — автозагрузка · прогресс на экране</div>
         </div>
       </div>
     </div>
 
 ```
-<div id="dbLoader" style="display:none;flex-shrink:0;padding:6px 0 10px;">
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
-    <span id="dbStatusText" style="font-size:.58rem;letter-spacing:.08em;color:#555;text-transform:uppercase;"></span>
-    <span id="dbPct" style="font-size:.7rem;font-weight:600;color:#888;font-variant-numeric:tabular-nums;">0%</span>
-  </div>
-  <div style="height:2px;background:#111;border-radius:2px;overflow:hidden;">
-    <div id="dbBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2a2a2a,#666);border-radius:2px;transition:width .3s ease;"></div>
-  </div>
-</div>
 <div class="ruku-badge" id="rukuBadge">
   <div class="ruku-dot"></div>
   <span class="ruku-txt" id="rukuTxt">поклон</span>
@@ -140,6 +131,15 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
 <div class="idle" id="idle">
   <div class="dots" id="dots"><span></span><span></span><span></span></div>
   <div class="idle-lbl" id="idleLbl">Нажмите микрофон</div>
+  <div id="dbLoader" style="display:none;width:200px;margin-top:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+      <span id="dbStatusText" style="font-size:.6rem;letter-spacing:.07em;color:#444;text-transform:uppercase;"></span>
+      <span id="dbPct" style="font-size:.75rem;font-weight:700;color:#666;font-variant-numeric:tabular-nums;">0%</span>
+    </div>
+    <div style="height:2px;background:#1a1a1a;border-radius:2px;overflow:hidden;">
+      <div id="dbBar" style="height:100%;width:0%;background:linear-gradient(90deg,#333,#777);border-radius:2px;transition:width .25s ease;"></div>
+    </div>
+  </div>
 </div>
 
 <div class="stage" id="stage">
@@ -310,6 +310,7 @@ let apiKey = localStorage.getItem('qk')||'';
 let mode   = localStorage.getItem('qm')||'manual';
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
+loadQuranDB();
 
 // 4.8 Arabic chars per second
 const CHARS_PER_SEC = 4.8;
