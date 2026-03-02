@@ -111,7 +111,7 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v2.4 — локальная база · авто-темп</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v2.5 — таймер без задержки</div>
         </div>
       </div>
     </div>
@@ -214,19 +214,18 @@ function qNext(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>=0&&i<Q
 function qPrev(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>0?QB[i-1]:null;}
 function qFmt(r,lang){if(!r)return null;const tr=lang==="en"?r[5]:r[4];return{s:r[0],a:r[1],name:r[2],arabic:r[3],tr};}
 // ══ Config ════════════════════════════════════
-const APP_VER = 'v2.4';
+const APP_VER = 'v2.5';
 let apiKey = localStorage.getItem('qk')||'';
 let mode   = localStorage.getItem('qm')||'manual';
 document.getElementById('apiKey').value = apiKey;
 applyMode(mode);
 
-// Fixed reading speed: ~6 Arabic chars per second (avg Quran recitation pace)
-// Minimum 2s, maximum 20s per ayah
-const CHARS_PER_SEC = 6;
-function ayahDurationMs(row){ 
+// 4.8 Arabic chars per second
+const CHARS_PER_SEC = 4.8;
+function ayahDurationMs(row){
   if(!row)return 4000;
   const chars=row[3].replace(/\s/g,'').length;
-  return Math.max(2000, Math.min(20000, (chars/CHARS_PER_SEC)*1000));
+  return Math.max(1500, Math.min(22000, (chars/CHARS_PER_SEC)*1000));
 }
 
 // ══ Settings ══════════════════════════════════
@@ -260,8 +259,7 @@ function getLang(){return document.getElementById('lang').value||'ru';}
 let mediaRec=null,audioCtx=null;
 let allChunks=[],pendChunks=[];
 let recOn=false;
-let timerSec=0,timerIv=null,autoIv=null;
-let silTmr=null,wasSpeaking=false;
+let timerSec=0,timerIv=null;
 let sliceStart=0;
 let mime='audio/mp4';
 
@@ -279,7 +277,9 @@ async function startRec(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
     allChunks=[];pendChunks=[];win=[null,null,null];
+    anchorDone=false;anchorRunning=false;
     if(advTmr){clearTimeout(advTmr);advTmr=null;}
+    if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
 
     const m=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
     mime=m||'audio/mp4';
@@ -298,7 +298,7 @@ async function startRec(){
         String(Math.floor(timerSec/60)).padStart(2,'0')+':'+String(timerSec%60).padStart(2,'0');
     },1000);
 
-    if(mode==='auto')startSilence(stream);
+    if(mode==='auto')startLive();
   }catch(e){alert('Микрофон: '+e.message);}
 }
 
@@ -316,41 +316,13 @@ async function stopManual(){
 }
 
 function stopLive(){
-  recOn=false;clearInterval(timerIv);clearInterval(autoIv);
-  if(silTmr){clearTimeout(silTmr);silTmr=null;}
+  recOn=false;clearInterval(timerIv);
+  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
   if(audioCtx){audioCtx.close();audioCtx=null;}
   document.getElementById('tmr').textContent='';
   if(mediaRec?.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
   document.getElementById('mic').classList.remove('on');
-}
-
-// ══ Silence detection ══════════════════════════
-const THR=0.012, SIL=1100, MINSL=1200;
-
-function startSilence(stream){
-  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  const src=audioCtx.createMediaStreamSource(stream);
-  const ana=audioCtx.createAnalyser();ana.fftSize=512;src.connect(ana);
-  const buf=new Float32Array(ana.fftSize);
-  function rms(){ana.getFloatTimeDomainData(buf);let s=0;for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];return Math.sqrt(s/buf.length);}
-
-  autoIv=setInterval(()=>{
-    if(!recOn)return;
-    const spk=rms()>THR;
-    if(spk){wasSpeaking=true;if(silTmr){clearTimeout(silTmr);silTmr=null;}}
-    else if(wasSpeaking&&!silTmr){
-      silTmr=setTimeout(()=>{
-        silTmr=null;
-        const dur=Date.now()-sliceStart;
-        if(pendChunks.length>0&&dur>=MINSL){
-          const b=[...pendChunks];pendChunks=[];
-          sliceStart=Date.now();wasSpeaking=false;
-          doLive(b); // fire and forget
-        }
-      },SIL);
-    }
-  },80);
 }
 
 // ══ MANUAL MODE ═══════════════════════════════
@@ -407,69 +379,108 @@ function showList(ayahs){
 }
 
 // ══ LIVE MODE ══════════════════════════════════
-let liveRunning=false;
+// Strategy: record 5s → single Whisper+GPT call to anchor position
+// Then advance purely by timer (no more API calls during recitation)
+let anchorDone=false;
+let anchorRunning=false;
+let anchorTimer=null;
 
-async function doLive(chunks){
-  if(liveRunning)return;
-  liveRunning=true;
+function startLive(){
+  anchorDone=false; anchorRunning=false;
+  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
+  // Wait 5s then do the anchor call
+  anchorTimer=setTimeout(doAnchor, 5000);
+}
+
+async function doAnchor(){
+  anchorTimer=null;
+  if(!recOn||anchorRunning)return;
+  anchorRunning=true;
+
+  const chunks=[...allChunks]; // use all audio so far
+  if(!chunks.length){anchorRunning=false;retryAnchor();return;}
+
   try{
     const blob=new Blob(chunks,{type:mime});
     const fd=new FormData();
     fd.append('file',blob,'a.'+(mime.includes('webm')?'webm':'mp4'));
     fd.append('model','whisper-1');fd.append('language','ar');
     fd.append('prompt','بسم الله الرحمن الرحيم قرآن كريم');
-    const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',{method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
-    if(!wr.ok){liveRunning=false;return;}
-    const{text}=await wr.json();
-    if(!text?.trim()){liveRunning=false;return;}
 
-    const lg=getLang();
-    const prevCur=win[1];
-    const ctx=prevCur?`Last confirmed: Surah ${prevCur.s} Ayah ${prevCur.a}. Next ayah is likely ${prevCur.s}:${prevCur.a+1} or close by.`:'';
+    const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',
+      {method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
+    if(!wr.ok){anchorRunning=false;retryAnchor();return;}
+    const{text}=await wr.json();
+    if(!text?.trim()){anchorRunning=false;retryAnchor();return;}
 
     const gr=await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
       body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
         role:'system',
-        content:`Quran expert. ${ctx} Which single ayah is being recited? Be generous with transcription errors.
-Respond ONLY with JSON: {"s":78,"a":3}`
+        content:`Quran expert. Which ayah is being recited? Be generous with errors.
+Respond ONLY JSON: {"s":78,"a":3}`
       },{role:'user',content:'"'+text.trim()+'"'}]})
     });
-    if(!gr.ok){liveRunning=false;return;}
+    if(!gr.ok){anchorRunning=false;retryAnchor();return;}
+
     const raw=(await gr.json()).choices[0]?.message?.content||'';
     let cur={};
-    try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{liveRunning=false;return;}
-    if(!cur.s||!cur.a){liveRunning=false;return;}
+    try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{}
 
-    // Same ayah still playing — don't reset the advance timer, just let it run
-    if(win[1]&&win[1].s===cur.s&&win[1].a===cur.a){liveRunning=false;return;}
+    if(!cur.s||!cur.a){anchorRunning=false;retryAnchor();return;}
 
-    // New ayah confirmed — cancel old timer and set window
-    if(advTmr){clearTimeout(advTmr);advTmr=null;}
+    // ── Anchored! Now estimate which ayah we're on RIGHT NOW ──
+    // The anchor reflects audio from ~5s ago (recording start)
+    // Plus API took ~4-5s → we're ~8-10s ahead of the anchor
+    // Advance forward to catch up
+    const lg=getLang();
+    const apiDelay=9000; // conservative estimate: 5s recording + ~4s API
+    let anchorRow=qGet(cur.s,cur.a);
+    let catchupMs=0;
+    let catchupRow=anchorRow;
 
-    const curRow=qGet(cur.s,cur.a);
-    const nxtRow=qNext(cur.s,cur.a);
-    const prvRow=win[1]?qGet(win[1].s,win[1].a):null;
+    // Walk forward through ayahs until we've consumed apiDelay ms
+    while(catchupRow && catchupMs < apiDelay){
+      const dur=ayahDurationMs(catchupRow);
+      if(catchupMs+dur > apiDelay) break;
+      catchupMs+=dur;
+      const nx=qNext(catchupRow[0],catchupRow[1]);
+      if(!nx)break;
+      catchupRow=nx;
+    }
 
+    // Set window at catch-up position
+    const prvRow=catchupRow?qPrev(catchupRow[0],catchupRow[1]):null;
+    const nxtRow=catchupRow?qNext(catchupRow[0],catchupRow[1]):null;
     win=[
       prvRow?qFmt(prvRow,lg):null,
-      qFmt(curRow,lg)||{s:cur.s,a:cur.a,name:'',arabic:'',tr:''},
+      catchupRow?qFmt(catchupRow,lg):null,
       nxtRow?qFmt(nxtRow,lg):null
     ];
     renderWin();
-    scheduleAdvance(nxtRow,lg);
+    anchorDone=true;
+
+    // How far into the current ayah are we? Use remainder
+    const curDur=ayahDurationMs(catchupRow);
+    const elapsed=catchupMs>0?(apiDelay-catchupMs+catchupMs):0;
+    const remaining=Math.max(500, curDur-(apiDelay-catchupMs));
+    scheduleAdvance(remaining, lg);
 
   }catch(e){}
-  liveRunning=false;
+  anchorRunning=false;
 }
 
-// Schedule auto-advance based on char count of CURRENT ayah
-// (how long will the reader spend on current before moving to next)
-function scheduleAdvance(nxtRow,lg){
-  if(!nxtRow||!recOn)return;
-  const curRow=win[1]?qGet(win[1].s,win[1].a):null;
-  const ms=ayahDurationMs(curRow); // duration of current ayah = when to show next
-  advTmr=setTimeout(()=>doAdvance(lg),ms);
+function retryAnchor(){
+  // If anchor failed, retry in 4s
+  if(recOn&&!anchorDone){
+    anchorTimer=setTimeout(doAnchor,4000);
+  }
+}
+
+function scheduleAdvance(delayMs, lg){
+  if(advTmr){clearTimeout(advTmr);advTmr=null;}
+  if(!recOn)return;
+  advTmr=setTimeout(()=>doAdvance(lg), delayMs);
 }
 
 function doAdvance(lg){
@@ -477,14 +488,12 @@ function doAdvance(lg){
   if(!recOn||!win[2])return;
   const newPrev=win[1];
   const newCur=win[2];
-  const newCurRow=qGet(newCur.s,newCur.a);
-  const newNxtRow=newCur?qNext(newCur.s,newCur.a):null;
+  const newCurRow=newCur?qGet(newCur.s,newCur.a):null;
+  const newNxtRow=newCurRow?qNext(newCurRow[0],newCurRow[1]):null;
   win=[newPrev, newCur, newNxtRow?qFmt(newNxtRow,lg):null];
   renderWin();
-  // Schedule next advance based on new current ayah duration
-  if(newNxtRow){
-    const ms=ayahDurationMs(newCurRow);
-    advTmr=setTimeout(()=>doAdvance(lg),ms);
+  if(newCurRow){
+    scheduleAdvance(ayahDurationMs(newCurRow), lg);
   }
 }
 
