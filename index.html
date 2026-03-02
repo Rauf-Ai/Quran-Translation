@@ -216,7 +216,7 @@ animation:ripple 2s ease-out infinite;
           <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
         </div>
         <button class="btn-save" onclick="saveS()">Сохранить</button>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.9 — новый интерфейс · история аятов</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v4.0 — компенсация задержки · нет прыжков назад</div>
       </div>
     </div>
   </div>
@@ -541,16 +541,42 @@ async function manualSearch(text){
 }
 
 // ══ Live mode ══════════════════════════════════════════
-const CHARS_PER_SEC_LIVE=7.2;
+//
+// v4.0 — компенсация задержки + движение только вперёд
+//
+// Проблема: Whisper слышит 5с аудио, GPT обрабатывает → итого ~5-7с задержки.
+// За это время чтец читает ~1.5 аята. Решение:
+//   1. При первом якоре смещаемся вперёд на LAG_AYAHS
+//   2. Дальше двигаемся только по таймеру (не прыгаем назад)
+//   3. Poll используется только для мягкой коррекции вперёд
+//   4. Аллаху Акбар и Фатиха — всегда приоритет
+
+const CHARS_PER_SEC_LIVE = 7.2;
+const LAG_AYAHS = 2; // компенсация: ~1.5 аята задержки, берём 2 для надёжности
+
 function ayahMs(row){
   if(!row)return 3000;
   const chars=row[3].replace(/\s/g,'').length;
   return Math.max(1200,Math.min(20000,(chars/CHARS_PER_SEC_LIVE)*1000));
 }
 
-let liveState='idle'; // idle|running|paused
+function qAdvanceN(s,a,n){
+  let row=qGet(s,a);
+  if(!row)return null;
+  for(let i=0;i<n;i++){
+    const nxt=qNext(row[0],row[1]);
+    if(!nxt) break;
+    row=nxt;
+  }
+  return row;
+}
+
+function qIdx(s,a){return QB.findIndex(r=>r[0]===s&&r[1]===a);}
+
+let liveState='idle';
 let pollIv=null, pollRunning=false;
 let rukuAt=0;
+let anchored=false;
 
 function stopRukuDetector(){}
 function startRukuDetector(){}
@@ -560,11 +586,11 @@ function retryAnchor(){}
 function startLive(){
   liveState='idle';
   pollRunning=false;
+  anchored=false;
   if(pollIv){clearInterval(pollIv);pollIv=null;}
   pollIv=setInterval(doPoll,5000);
 }
 
-// ── Main 5s poll ──────────────────────────────────────────
 async function doPoll(){
   if(!recOn||pollRunning)return;
   const chunks=[...rollingBuf];
@@ -578,7 +604,7 @@ async function doPoll(){
     const fd=new FormData();
     fd.append('file',blob,'p.'+(mime.includes('webm')?'webm':'mp4'));
     fd.append('model','whisper-1');
-    fd.append('prompt','الله أكبر الله أكبر بسم الله الرحمن الرحيم الحمد لله');
+    fd.append('prompt','الله أكبر الله أكبر بسم الله الرحمن الرحيم الحمد لله رب العالمين');
     const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',
       {method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
     if(!wr.ok){pollRunning=false;setMicState('listening');return;}
@@ -588,57 +614,66 @@ async function doPoll(){
     const raw=text.trim();
     console.log('[poll]',liveState,'→',raw.slice(0,90));
 
-    // Fast local check: Allahu Akbar
+    // ── Шаг 1: Аллаху Акбар (всегда приоритет) ──
     const norm=raw.replace(/[\u064B-\u065F]/g,'').replace(/\s+/g,'');
     const hasAkbar=
-      norm.includes('اللهأكبر')||norm.includes('ألله أكبر')||
-      /\bالله\s*أكبر\b/.test(raw)||/allahu\s*akbar/i.test(raw)||/\bakbar\b/i.test(raw);
+      norm.includes('\u0627\u0644\u0644\u0647\u0623\u0643\u0628\u0631')||
+      /\u0628\u0627\u0644\u0644\u0647\s*\u0623\u0643\u0628\u0631\b/.test(raw)||
+      /allahu\s*akbar/i.test(raw)||/\bakbar\b/i.test(raw);
 
     if(hasAkbar){
-      console.log('[poll] AKBAR →',raw);
+      console.log('[poll] \u2605 AKBAR');
       handleAction({action:'ruku'},lg);
       pollRunning=false;setMicState('listening');return;
     }
 
-    // Fatiha detection (only when paused & >4s after ruku)
+    // ── Шаг 2: Фатиха (только во время паузы после руку) ──
     const msSinceRuku=rukuAt>0?Date.now()-rukuAt:99999;
     if(liveState==='paused'&&msSinceRuku>4000){
       const hasFatiha=
-        norm.includes('الحمدلله')||norm.includes('ربالعالمين')||
-        norm.includes('مالكيومالدين')||norm.includes('اياكنعبد')||
-        norm.includes('إياكنعبد')||norm.includes('الصراطالمستقيم')||
+        norm.includes('\u0627\u0644\u062d\u0645\u062f\u0644\u0644\u0647')||
+        norm.includes('\u0631\u0628\u0627\u0644\u0639\u0627\u0644\u0645\u064a\u0646')||
+        norm.includes('\u0645\u0627\u0644\u0643\u064a\u0648\u0645\u0627\u0644\u062f\u064a\u0646')||
+        norm.includes('\u0627\u064a\u0627\u0643\u0646\u0639\u0628\u062f')||
+        norm.includes('\u0625\u064a\u0627\u0643\u0646\u0639\u0628\u062f')||
+        norm.includes('\u0627\u0644\u0635\u0631\u0627\u0637\u0627\u0644\u0645\u0633\u062a\u0642\u064a\u0645')||
         /alhamdu\s*lill/i.test(raw)||/rabbi[lh]\s*[ae]alamin/i.test(raw);
       if(hasFatiha){
+        console.log('[poll] \u2605 FATIHA');
         handleAction({action:'fatiha'},lg);
         pollRunning=false;setMicState('listening');return;
       }
     }
 
-    // GPT identifies ayah
+    // ── Шаг 3: GPT определяет аят ──
     const curCtx=win[1]
       ?`Currently showing: Surah ${win[1].s} Ayah ${win[1].a}. State: ${liveState}.`
-      :'Nothing shown yet.';
+      :'Nothing shown yet (first recognition).';
 
     const gr=await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',
       headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
       body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
         role:'system',
-        content:`Quran prayer assistant. ${curCtx}
-State is "${liveState}". ${liveState==='paused'?'Imam just did ruku/sujud. Waiting for Al-Fatiha to resume.':''}
-Return ONLY one JSON:
-{"action":"recite","s":67,"a":3}  — specific Quran ayah
-{"action":"fatiha"}                — Al-Fatiha (surah 1)
-{"action":"ruku"}                  — "Allahu Akbar" alone
-{"action":"silence"}               — silence, unclear, tasbeeh
-Rules: "bismillah" alone = silence. Be generous with ayah matching. ONLY JSON.`
-      },{role:'user',content:'"'+raw+'"'}]})
+        content:`Quran recitation expert monitoring live mosque prayer. ${curCtx}
+There is a ~5 second audio processing lag (we are slightly behind the imam).
+Identify what was recited in the last 5 seconds. Return ONLY one JSON:
+{"action":"recite","s":67,"a":3}  — Quran ayah number
+{"action":"fatiha"}                — Al-Fatiha (surah 1) specifically
+{"action":"ruku"}                  — "Allahu Akbar" alone (between positions)
+{"action":"silence"}               — silence, dhikr, unclear audio
+Rules:
+- Be generous with transcription errors, pick best ayah match
+- If unsure between two adjacent ayahs, pick the LATER one (we lag behind)
+- "bismillah" alone = silence (every surah begins with it)
+- ONLY return the JSON object`
+      },{role:'user',content:`"${raw}"`}]})
     });
     if(!gr.ok){pollRunning=false;setMicState('listening');return;}
     const graw=(await gr.json()).choices[0]?.message?.content||'';
     let res={};
     try{res=JSON.parse(graw.replace(/```json|```/g,'').trim());}catch{pollRunning=false;setMicState('listening');return;}
-    console.log('[poll] GPT →',JSON.stringify(res));
+    console.log('[poll] GPT \u2192',JSON.stringify(res));
     handleAction(res,lg);
   }catch(e){console.warn('[poll]',e);}
   pollRunning=false;
@@ -647,26 +682,51 @@ Rules: "bismillah" alone = silence. Be generous with ayah matching. ONLY JSON.`
 
 function handleAction(res,lg){
   switch(res.action){
+
     case 'recite':{
       if(!res.s||!res.a)break;
-      const row=qGet(res.s,res.a);
-      if(!row)break;
-      const curKey=win[1]?win[1].s+':'+win[1].a:null;
-      const newKey=res.s+':'+res.a;
-      if(curKey===newKey)break;
-      if(advTmr){clearTimeout(advTmr);advTmr=null;}
-      showRukuOverlay(false);
-      liveState='running';
-      const prvRow=qPrev(row[0],row[1]);
-      const nxtRow=qNext(row[0],row[1]);
-      win=[prvRow?qFmt(prvRow,lg):null,qFmt(row,lg),nxtRow?qFmt(nxtRow,lg):null];
-      renderFeed();
-      scheduleAdvance(Math.round(ayahMs(row)*0.5),lg);
+      const detectedRow=qGet(res.s,res.a);
+      if(!detectedRow)break;
+
+      if(!anchored){
+        // Первый якорь: применяем компенсацию задержки
+        const compensated=qAdvanceN(res.s,res.a,LAG_AYAHS)||detectedRow;
+        console.log('[anchor] first anchor',res.s+':'+res.a,'→',compensated[0]+':'+compensated[1]);
+        anchored=true;
+        _anchorTo(compensated,lg);
+      } else {
+        // Уже бежим: коррекция только вперёд, не назад
+        if(!win[1])break;
+        const curIdx=qIdx(win[1].s,win[1].a);
+        const detIdx=qIdx(res.s,res.a);
+        // GPT слышал аудио LAG_AYAHS назад, поэтому реальная позиция
+        // примерно detIdx + LAG_AYAHS
+        const realIdx=detIdx+LAG_AYAHS;
+        const diff=realIdx-curIdx;
+
+        if(diff>5){
+          // Сильно отстали (>5 аятов) — жёсткая коррекция
+          const compensated=qAdvanceN(res.s,res.a,LAG_AYAHS)||detectedRow;
+          console.log('[poll] hard correction +'+diff+' → jump');
+          _anchorTo(compensated,lg);
+        } else if(diff>2){
+          // Немного отстали — ускоряем таймер (без прыжка в UI)
+          console.log('[poll] soft correction +'+Math.round(diff)+' ayahs, speed up');
+          if(advTmr){clearTimeout(advTmr);advTmr=null;}
+          scheduleAdvance(300,lg);
+        } else if(diff<-3){
+          // GPT вернул сильно позади — игнорируем, не прыгаем назад
+          console.log('[poll] ignore: behind by',Math.round(-diff),'ayahs');
+        }
+        // иначе: норма, таймер ведёт правильно
+      }
       break;
     }
+
     case 'ruku':{
       if(liveState!=='paused'){
         liveState='paused';
+        anchored=false; // после руку ждём нового якоря на Фатихе
         rukuAt=Date.now();
         rollingBuf=[];
         if(advTmr){clearTimeout(advTmr);advTmr=null;}
@@ -674,9 +734,11 @@ function handleAction(res,lg){
       }
       break;
     }
+
     case 'fatiha':{
-      if(win[1]&&win[1].s===1)break;
+      if(win[1]&&win[1].s===1&&win[1].a<=3)break;
       liveState='running';
+      anchored=true;
       if(advTmr){clearTimeout(advTmr);advTmr=null;}
       showRukuOverlay(false);
       const f1=qGet(1,1),f2=qGet(1,2);
@@ -685,12 +747,23 @@ function handleAction(res,lg){
       if(f1)scheduleAdvance(ayahMs(f1),lg);
       break;
     }
+
     case 'silence':
     default:
       break;
   }
 }
 
+function _anchorTo(row,lg){
+  if(advTmr){clearTimeout(advTmr);advTmr=null;}
+  showRukuOverlay(false);
+  liveState='running';
+  const prvRow=qPrev(row[0],row[1]);
+  const nxtRow=qNext(row[0],row[1]);
+  win=[prvRow?qFmt(prvRow,lg):null,qFmt(row,lg),nxtRow?qFmt(nxtRow,lg):null];
+  renderFeed();
+  scheduleAdvance(Math.round(ayahMs(row)*0.5),lg);
+}
 function showRukuOverlay(show,label='руку — пауза'){
   const badge=document.getElementById('rukuBadge');
   const txt=document.getElementById('rukuTxt');
