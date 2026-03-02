@@ -117,13 +117,21 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.3 — полный Коран (6236 аятов) · кеш localStorage</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.4 — прогресс загрузки Корана</div>
         </div>
       </div>
     </div>
 
 ```
-<div id="dbStatus" style="font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:#333;padding:4px 0 6px;flex-shrink:0;display:none;"></div>
+<div id="dbLoader" style="display:none;flex-shrink:0;padding:6px 0 10px;">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+    <span id="dbStatusText" style="font-size:.58rem;letter-spacing:.08em;color:#555;text-transform:uppercase;"></span>
+    <span id="dbPct" style="font-size:.7rem;font-weight:600;color:#888;font-variant-numeric:tabular-nums;">0%</span>
+  </div>
+  <div style="height:2px;background:#111;border-radius:2px;overflow:hidden;">
+    <div id="dbBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2a2a2a,#666);border-radius:2px;transition:width .3s ease;"></div>
+  </div>
+</div>
 <div class="ruku-badge" id="rukuBadge">
   <div class="ruku-dot"></div>
   <span class="ruku-txt" id="rukuTxt">поклон</span>
@@ -161,90 +169,111 @@ function qNext(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>=0&&i<Q
 function qPrev(s,a){const i=QB.findIndex(r=>r[0]===s&&r[1]===a);return i>0?QB[i-1]:null;}
 function qFmt(r,lang){if(!r)return null;const tr=lang==='en'?r[5]:r[4];return{s:r[0],a:r[1],name:r[2],arabic:r[3],tr};}
 
-// ── DB loading ────────────────────────────────
+// ── DB loading with progress ──────────────────
 const DB_KEY_AR  = 'qdb_ar_v1';
 const DB_KEY_RU  = 'qdb_ru_v1';
 const DB_KEY_EN  = 'qdb_en_v1';
 
 let dbReady = false;
-let dbStatus = 'Загрузка базы Корана...';
 
-function showDbStatus(msg, done=false){
-  dbStatus = msg;
-  const el = document.getElementById('dbStatus');
-  if(el){ el.textContent = msg; el.style.display = done ? 'none' : 'block'; }
+function setProgress(pct, label){
+  const loader = document.getElementById('dbLoader');
+  const bar    = document.getElementById('dbBar');
+  const pctEl  = document.getElementById('dbPct');
+  const txt    = document.getElementById('dbStatusText');
+  if(!loader) return;
+  if(pct < 0){ loader.style.display='none'; return; }
+  loader.style.display = 'block';
+  bar.style.width = pct+'%';
+  pctEl.textContent = Math.round(pct)+'%';
+  if(label) txt.textContent = label;
+}
+
+// Fetch with progress tracking via ReadableStream
+async function fetchWithProgress(url, onProgress){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const total = parseInt(res.headers.get('content-length')||'0');
+  const reader = res.body.getReader();
+  const chunks = [];
+  let received = 0;
+  while(true){
+    const {done, value} = await reader.read();
+    if(done) break;
+    chunks.push(value);
+    received += value.length;
+    if(total) onProgress(received/total);
+  }
+  const blob = new Blob(chunks);
+  return JSON.parse(await blob.text());
 }
 
 async function loadQuranDB(){
-  // Try cache first
+  // Try localStorage cache first — instant
   try{
-    const cached = localStorage.getItem(DB_KEY_AR);
-    const cachedRu = localStorage.getItem(DB_KEY_RU);
-    const cachedEn = localStorage.getItem(DB_KEY_EN);
-    if(cached && cachedRu && cachedEn){
-      const ar = JSON.parse(cached);   // [{s,a,n,t}]
-      const ru = JSON.parse(cachedRu); // {s:a: text}
-      const en = JSON.parse(cachedEn);
-      QB = ar.map(x => [x.s, x.a, x.n, x.t, ru[x.s+':'+x.a]||'', en[x.s+':'+x.a]||'']);
+    const cAr = localStorage.getItem(DB_KEY_AR);
+    const cRu = localStorage.getItem(DB_KEY_RU);
+    const cEn = localStorage.getItem(DB_KEY_EN);
+    if(cAr && cRu && cEn){
+      const ar = JSON.parse(cAr);
+      const ru = JSON.parse(cRu);
+      const en = JSON.parse(cEn);
+      QB = ar.map(x=>[x.s,x.a,x.n,x.t,ru[x.s+':'+x.a]||'',en[x.s+':'+x.a]||'']);
       dbReady = true;
-      showDbStatus('', true);
-      console.log('[db] loaded from cache:', QB.length, 'ayahs');
+      setProgress(-1);
+      console.log('[db] from cache:',QB.length,'ayahs');
       return;
     }
   }catch(e){ localStorage.removeItem(DB_KEY_AR); }
 
-  // Fetch from alquran.cloud
-  showDbStatus('Загрузка Корана (~1.5 МБ)...');
+  // Download with progress
+  // 3 files, roughly equal weight → each counts as 1/3
+  setProgress(0, 'Загрузка Корана...');
   try{
-    // Parallel fetch: Arabic + Russian + English
-    const [arRes, ruRes, enRes] = await Promise.all([
-      fetch('https://api.alquran.cloud/v1/quran/quran-simple'),
-      fetch('https://api.alquran.cloud/v1/quran/ru.kuliev'),
-      fetch('https://api.alquran.cloud/v1/quran/en.sahih'),
-    ]);
-    if(!arRes.ok||!ruRes.ok||!enRes.ok) throw new Error('fetch failed');
+    let p1=0, p2=0, p3=0;
+    const tick = ()=> setProgress((p1+p2+p3)/3*95, `Загрузка Корана...`);
 
-    showDbStatus('Обработка...');
     const [arData, ruData, enData] = await Promise.all([
-      arRes.json(), ruRes.json(), enRes.json()
+      fetchWithProgress('https://api.alquran.cloud/v1/quran/quran-simple',   v=>{p1=v;tick();}),
+      fetchWithProgress('https://api.alquran.cloud/v1/quran/ru.kuliev',      v=>{p2=v;tick();}),
+      fetchWithProgress('https://api.alquran.cloud/v1/quran/en.sahih',       v=>{p3=v;tick();}),
     ]);
+
+    setProgress(96, 'Обработка...');
 
     const arSurahs = arData.data.surahs;
-    const ruSurahs = ruData.data.surahs;
-    const enSurahs = enData.data.surahs;
-
-    // Build lookup maps for translations
     const ruMap={}, enMap={};
-    ruSurahs.forEach(s => s.ayahs.forEach(a => ruMap[s.number+':'+a.numberInSurah]=a.text));
-    enSurahs.forEach(s => s.ayahs.forEach(a => enMap[s.number+':'+a.numberInSurah]=a.text));
+    ruData.data.surahs.forEach(s=>s.ayahs.forEach(a=>ruMap[s.number+':'+a.numberInSurah]=a.text));
+    enData.data.surahs.forEach(s=>s.ayahs.forEach(a=>enMap[s.number+':'+a.numberInSurah]=a.text));
 
-    // Build QB
-    const arStore = [];
-    QB = [];
-    arSurahs.forEach(s => {
-      s.ayahs.forEach(a => {
-        const key = s.number+':'+a.numberInSurah;
-        arStore.push({s:s.number, a:a.numberInSurah, n:s.englishName, t:a.text});
-        QB.push([s.number, a.numberInSurah, s.englishName, a.text, ruMap[key]||'', enMap[key]||'']);
+    const arStore=[];
+    QB=[];
+    arSurahs.forEach(s=>{
+      s.ayahs.forEach(a=>{
+        const k=s.number+':'+a.numberInSurah;
+        arStore.push({s:s.number,a:a.numberInSurah,n:s.englishName,t:a.text});
+        QB.push([s.number,a.numberInSurah,s.englishName,a.text,ruMap[k]||'',enMap[k]||'']);
       });
     });
 
-    // Cache everything
-    localStorage.setItem(DB_KEY_AR, JSON.stringify(arStore));
-    localStorage.setItem(DB_KEY_RU, JSON.stringify(ruMap));
-    localStorage.setItem(DB_KEY_EN, JSON.stringify(enMap));
+    setProgress(98, 'Сохранение...');
+    try{
+      localStorage.setItem(DB_KEY_AR, JSON.stringify(arStore));
+      localStorage.setItem(DB_KEY_RU, JSON.stringify(ruMap));
+      localStorage.setItem(DB_KEY_EN, JSON.stringify(enMap));
+    }catch(e){ console.warn('[db] cache write failed (quota?)'); }
 
     dbReady = true;
-    showDbStatus('', true);
-    console.log('[db] downloaded & cached:', QB.length, 'ayahs');
+    setProgress(100, 'Готово — '+QB.length+' аятов');
+    setTimeout(()=>setProgress(-1), 1200);
+    console.log('[db] downloaded:',QB.length,'ayahs');
 
   }catch(e){
-    console.error('[db] load failed:', e);
-    // Fallback to built-in mini DB
-    showDbStatus('Офлайн — мини-база (Фатиха, Мульк, Набаʼ, Ихляс)', false);
+    console.error('[db]',e);
     QB = FALLBACK_QB;
     dbReady = true;
-    setTimeout(()=>showDbStatus('',true), 3000);
+    setProgress(100, 'Офлайн — мини-база');
+    setTimeout(()=>setProgress(-1), 2500);
   }
 }
 
