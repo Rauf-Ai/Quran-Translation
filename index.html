@@ -165,24 +165,63 @@ order:3;
 }
 .ayah-item.cur .ayah-ref{color:#2a2a2a;}
 
-/* ── Small floating mic (after first recognition) ── */
-#floatMic{
-position:fixed;bottom:20px;right:20px;
-width:44px;height:44px;border-radius:50%;
-background:#111;border:1px solid #1e1e1e;
-cursor:pointer;display:none;
-align-items:center;justify-content:center;
-z-index:100;transition:all .25s;
+/* ── Pause button (shown during live recognition, bottom center) ── */
+#pauseBtn{
+position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+display:none;align-items:center;gap:10px;
+background:#0f0f0f;border:1px solid #222;
+border-radius:40px;padding:11px 26px;
+cursor:pointer;z-index:100;
+font-family:‘Inter’,sans-serif;user-select:none;
 }
-#floatMic.show{display:flex;}
-#floatMic.on{background:#222;border-color:#333;}
-#floatMic svg{width:17px;height:17px;fill:#555;transition:fill .2s;}
-#floatMic.on svg{fill:#aaa;}
-#floatMic.on::after{
-content:’’;position:absolute;inset:-5px;border-radius:50%;
-border:1px solid rgba(255,255,255,.06);
-animation:ripple 2s ease-out infinite;
+#pauseBtn.show{display:flex;}
+#pauseBtn:active{opacity:.6;}
+#pauseBtn svg{width:14px;height:14px;fill:#666;flex-shrink:0;}
+#pauseBtn .pb-label{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:#444;}
+
+/* ── Manual correction overlay ── */
+#manualOverlay{
+display:none;position:fixed;inset:0;background:#0a0a0a;
+z-index:200;flex-direction:column;
 }
+#manualOverlay.show{display:flex;}
+#manualHeader{
+flex-shrink:0;padding:14px 20px 10px;
+display:flex;align-items:center;justify-content:space-between;
+border-bottom:1px solid #111;
+}
+#manualHeader span{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:#333;}
+#manualHeader button{background:none;border:none;color:#333;font-size:.7rem;
+font-family:‘Inter’,sans-serif;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;padding:4px 8px;}
+#manualList{
+flex:1;overflow-y:auto;padding:0 20px 100px;
+}
+#manualList::-webkit-scrollbar{width:0;}
+.m-item{
+padding:16px 0;border-bottom:1px solid #0f0f0f;cursor:pointer;
+opacity:.28;transition:opacity .15s;
+}
+.m-item.sel{opacity:1;}
+.m-item:hover{opacity:.55;}
+.m-tr{font-size:.92rem;line-height:1.65;color:#ccc;margin-bottom:5px;}
+.m-item.sel .m-tr{color:#eee;}
+.m-ar{font-family:‘Amiri’,serif;font-size:.95rem;direction:rtl;text-align:right;color:#333;line-height:1.9;}
+.m-item.sel .m-ar{color:#555;}
+.m-ref{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:#1e1e1e;margin-top:3px;}
+.m-item.sel .m-ref{color:#2e2e2e;}
+#manualFooter{
+position:fixed;bottom:0;left:0;right:0;
+padding:12px 20px 28px;background:#0a0a0a;border-top:1px solid #111;
+display:none;gap:10px;
+}
+#manualOverlay.show #manualFooter{display:flex;}
+#btnCancel,#btnConfirm{
+flex:1;padding:13px;border-radius:10px;border:1px solid #1e1e1e;
+background:#111;color:#777;font-family:‘Inter’,sans-serif;
+font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+}
+#btnConfirm{background:#fff;color:#000;border-color:#fff;}
+#btnCancel:active,#btnConfirm:active{opacity:.7;}
 
 @keyframes pulse{0%,80%,100%{opacity:.4;transform:scale(.85);}40%{opacity:1;transform:scale(1);}}
 </style>
@@ -216,7 +255,7 @@ animation:ripple 2s ease-out infinite;
           <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
         </div>
         <button class="btn-save" onclick="saveS()">Сохранить</button>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v4.0 — компенсация задержки · нет прыжков назад</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v4.1 — пауза · ручная коррекция · возобновление</div>
       </div>
     </div>
   </div>
@@ -262,14 +301,34 @@ animation:ripple 2s ease-out infinite;
 
   <div id="ayahFeed"></div>
 
-  <!-- Floating mini-mic (shown after first recognition) -->
+  <!-- Correction hint: shown on mic screen when paused with position -->
 
-  <button id="floatMic" onclick="toggleRec()">
-    <svg viewBox="0 0 24 24">
-      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V22H8v2h8v-2h-3v-1.06A9 9 0 0 0 21 12v-2h-2z"/>
-    </svg>
+  <div id="editHint" style="display:none;position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:50;">
+    <button onclick="openManual()" style="background:none;border:1px solid #1a1a1a;border-radius:30px;color:#2a2a2a;font-family:'Inter',sans-serif;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;padding:8px 18px;">
+      ✎ выбрать аят вручную
+    </button>
+  </div>
+
+  <!-- Pause button (shown during recognition) -->
+
+  <button id="pauseBtn" onclick="onPauseBtn()">
+    <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    <span class="pb-label">Пауза</span>
   </button>
+
+  <!-- Manual correction overlay -->
+
+  <div id="manualOverlay">
+    <div id="manualHeader">
+      <span>Выберите аят</span>
+      <button onclick="closeManual()">Отмена</button>
+    </div>
+    <div id="manualList"></div>
+    <div id="manualFooter">
+      <button id="btnCancel" onclick="closeManual()">Отмена</button>
+      <button id="btnConfirm" onclick="confirmManual()">Продолжить с этого аята</button>
+    </div>
+  </div>
 
 </div>
 
@@ -423,18 +482,113 @@ let firstRecognized=false;
 function showMicScreen(show){
   document.getElementById('micScreen').classList.toggle('hidden',!show);
   document.getElementById('ayahFeed').classList.toggle('on',!show);
+  // Always hide pause button when on mic screen
+  if(show) document.getElementById('pauseBtn').classList.remove('show');
+}
+
+// ── Pause / resume ──
+function onPauseBtn(){
+  // Pause: stop audio/timers but KEEP win position for resume
+  if(advTmr){clearTimeout(advTmr);advTmr=null;}
+  if(pollIv){clearInterval(pollIv);pollIv=null;}
+  liveState='paused';
+  recOn=false;
+  if(mediaRec&&mediaRec.state!=='inactive'){
+    mediaRec.stop();
+    mediaRec.stream.getTracks().forEach(t=>t.stop());
+  }
+  document.getElementById('pauseBtn').classList.remove('show');
+  showRukuOverlay(false);
+  showMicScreen(true);
+  setMicState('idle');
+  document.getElementById('micLabel').textContent=
+    win[1]?'Продолжить с '+win[1].name+' '+win[1].s+':'+win[1].a:'Нажмите чтобы слушать';
+  showEditHint(win[1]!=null);
+}
+
+// ── Manual correction ──
+let manualSelKey=null;
+const MANUAL_CONTEXT=30; // сколько аятов показываем вокруг текущего
+
+function openManual(){
+  // Build list: current ayah ± MANUAL_CONTEXT
+  const list=document.getElementById('manualList');
+  list.innerHTML='';
+  manualSelKey=win[1]?win[1].s+':'+win[1].a:null;
+
+  const curIdx=win[1]?qIdx(win[1].s,win[1].a):0;
+  const start=Math.max(0,curIdx-MANUAL_CONTEXT);
+  const end=Math.min(QB.length-1,curIdx+MANUAL_CONTEXT);
+  const lg=getLang();
+
+  for(let i=start;i<=end;i++){
+    const r=QB[i];
+    const key=r[0]+':'+r[1];
+    const tr=lg==='en'?r[5]:r[4];
+    const div=document.createElement('div');
+    div.className='m-item'+(key===manualSelKey?' sel':'');
+    div.id='mi-'+key;
+    div.dataset.key=key;
+    div.innerHTML=`<div class="m-tr">${tr||'—'}</div>
+<div class="m-ar">${r[3]||''}</div>
+<div class="m-ref">${r[2]} · ${r[0]}:${r[1]}</div>`;
+    div.onclick=()=>selectManual(key);
+    list.appendChild(div);
+  }
+
+  document.getElementById('manualOverlay').classList.add('show');
+  // Scroll to selected
+  requestAnimationFrame(()=>{
+    const sel=document.getElementById('mi-'+manualSelKey);
+    if(sel)sel.scrollIntoView({block:'center'});
+  });
+}
+
+function selectManual(key){
+  if(manualSelKey){
+    const prev=document.getElementById('mi-'+manualSelKey);
+    if(prev)prev.classList.remove('sel');
+  }
+  manualSelKey=key;
+  const el=document.getElementById('mi-'+key);
+  if(el)el.classList.add('sel');
+}
+
+function closeManual(){
+  document.getElementById('manualOverlay').classList.remove('show');
+}
+
+function confirmManual(){
+  if(!manualSelKey)return;
+  const [s,a]=manualSelKey.split(':').map(Number);
+  const row=qGet(s,a);
+  if(!row){closeManual();return;}
+  closeManual();
+  const lg=getLang();
+  anchored=true;
+  // Show feed (hide mic screen)
+  showMicScreen(false);
+  showEditHint(false);
+  // Anchor to selected ayah + start advance timer
+  // Timer runs even without mic — helps follow along manually
+  _anchorTo(row,lg);
 }
 
 function setMicState(state){ // 'idle'|'listening'|'recognizing'
   const bm=document.getElementById('bigMic');
-  const fm=document.getElementById('floatMic');
+  const pb=document.getElementById('pauseBtn');
   bm.classList.remove('listening','recognizing');
-  fm.classList.remove('on');
-  if(state==='listening'){bm.classList.add('listening');fm.classList.add('on');}
-  if(state==='recognizing'){bm.classList.add('recognizing');fm.classList.add('on');}
+  if(state==='listening')bm.classList.add('listening');
+  if(state==='recognizing')bm.classList.add('recognizing');
   document.getElementById('micLabel').textContent=
     state==='idle'?'Нажмите чтобы слушать':
-    state==='listening'?'Слушаю…':'Распознаю…';
+    state==='listening'?'Слушаю…':'Слушаю…';
+  // Show pause button only when we're in the feed view and recording
+  if(firstRecognized&&recOn&&(state==='listening'||state==='recognizing')){
+    pb.classList.add('show');
+  } else {
+    pb.classList.remove('show');
+  }
 }
 
 // ══ Recording ══════════════════════════════════════════
@@ -453,7 +607,15 @@ async function startRec(){
   try{stream=await navigator.mediaDevices.getUserMedia({audio:true});}
   catch(e){alert('Нет доступа к микрофону');return;}
 
-  allChunks=[];pendChunks=[];rollingBuf=[];win=[null,null,null];
+  // Preserve position if resuming (anchored + win set)
+  const resuming=anchored&&win[1]!=null;
+  if(!resuming){
+    allChunks=[];pendChunks=[];rollingBuf=[];win=[null,null,null];
+    anchored=false;
+  } else {
+    allChunks=[];pendChunks=[];rollingBuf=[];
+    // keep win, anchored
+  }
   liveState='idle';
   if(pollIv){clearInterval(pollIv);pollIv=null;}
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
@@ -473,8 +635,23 @@ async function startRec(){
   mediaRec.start(100);
   recOn=true;
 
+  if(resuming){
+    // Already have recognized ayahs — go straight to feed view
+    showMicScreen(false);
+  }
   setMicState('listening');
-  if(mode==='auto') startLive();
+  showEditHint(false);
+  if(mode==='auto'){
+    startLive();
+    if(resuming&&win[1]){
+      // Resume advance timer from current ayah
+      const curRow=qGet(win[1].s,win[1].a);
+      if(curRow){
+        liveState='running';
+        scheduleAdvance(Math.round(ayahMs(curRow)*0.5),getLang());
+      }
+    }
+  }
 }
 
 function stopManual(){
@@ -771,6 +948,11 @@ function showRukuOverlay(show,label='руку — пауза'){
   else{badge.classList.remove('on');}
 }
 
+function showEditHint(show){
+  const el=document.getElementById('editHint');
+  if(el)el.style.display=show?'flex':'none';
+}
+
 function scheduleAdvance(delayMs,lg){
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
   if(!recOn||liveState==='paused')return;
@@ -800,8 +982,10 @@ function renderFeed(){
   if(!firstRecognized){
     firstRecognized=true;
     showMicScreen(false);
-    document.getElementById('floatMic').classList.add('show');
   }
+  // Update pause button visibility
+  const pb=document.getElementById('pauseBtn');
+  if(recOn)pb.classList.add('show');
 
   const curKey=win[1].s+':'+win[1].a;
 
