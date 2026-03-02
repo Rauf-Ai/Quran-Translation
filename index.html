@@ -117,7 +117,7 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.0 — единый цикл 5с · локальный детект акбар</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v3.1 — фикс детекции Аль-Фатихи</div>
         </div>
       </div>
     </div>
@@ -492,23 +492,29 @@ async function doPoll(){
       return;
     }
 
-    // Step 3: Fast check for Fatiha locally
+    // Step 3: Fast check for Fatiha locally — works in ANY state
     const hasFatiha=
       norm.includes('الحمدلله')||
       norm.includes('بسماللهالرحمن')||
       norm.includes('ربالعالمين')||
-      /alhamdu\s*lillah/i.test(raw);
+      norm.includes('الرحمنالرحيم')||
+      norm.includes('مالكيومالدين')||
+      norm.includes('اياكنعبد')||
+      norm.includes('إياكنعبد')||
+      /alhamdu\s*lill/i.test(raw)||
+      /rabbi[lh]\s*[ae]alamin/i.test(raw)||
+      /bismillah/i.test(raw);
 
-    if(hasFatiha && liveState==='paused'){
+    if(hasFatiha){
       console.log('[poll] FATIHA detected locally');
       handleAction({action:'fatiha'},lg);
       pollRunning=false;
       return;
     }
 
-    // Step 4: GPT identifies which ayah (only for reciting/unknown state)
+    // Step 4: GPT identifies ayah — also handles ruku/fatiha as fallback
     const curCtx=win[1]
-      ?`Currently showing: Surah ${win[1].s} Ayah ${win[1].a}.`
+      ?`Currently showing: Surah ${win[1].s} Ayah ${win[1].a}. State: ${liveState}.`
       :'Nothing shown yet.';
 
     const gr=await fetch('https://api.openai.com/v1/chat/completions',{
@@ -516,11 +522,13 @@ async function doPoll(){
       headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
       body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
         role:'system',
-        content:`Quran expert. ${curCtx} Which ayah is being recited? Be generous with errors.
-If Al-Fatiha (surah 1): {"action":"fatiha"}
-If unclear/silence/dhikr: {"action":"silence"}
-Otherwise: {"action":"recite","s":67,"a":3}
-Return ONLY JSON.`
+        content:`Quran expert monitoring prayer. ${curCtx}
+Identify what is being said. Return ONLY one JSON:
+{"action":"recite","s":67,"a":3}  — specific Quran ayah
+{"action":"fatiha"}                — Al-Fatiha / Bismillah / Al-Hamdu lillah
+{"action":"ruku"}                  — Allahu Akbar alone (bowing/prostration)
+{"action":"silence"}               — silence, tasbeeh, unclear
+Be generous with transcription errors. Return ONLY JSON.`
       },{role:'user',content:`"${raw}"`}]})
     });
     if(!gr.ok){pollRunning=false;return;}
@@ -571,12 +579,17 @@ function handleAction(res,lg){
     }
 
     case 'fatiha':{
-      liveState='paused';
+      // Only trigger if not already showing Fatiha
+      if(win[1]&&win[1].s===1){break;}
+      liveState='running'; // running so advance timer works
       if(advTmr){clearTimeout(advTmr);advTmr=null;}
       showRukuOverlay(false);
+      // Show Fatiha from ayah 1 and let timer scroll through all 7
       const f1=qGet(1,1),f2=qGet(1,2);
       win=[null, f1?qFmt(f1,lg):null, f2?qFmt(f2,lg):null];
       renderWin();
+      // Start advance timer — will scroll through Fatiha ayahs normally
+      if(f1) scheduleAdvance(ayahMs(f1),lg);
       break;
     }
 
