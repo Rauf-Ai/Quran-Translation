@@ -61,6 +61,12 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
 .tr{margin-top:5px;font-size:clamp(.76rem,1.7vw,.92rem);line-height:1.6;color:#999;font-weight:300;}
 .rf{margin-top:5px;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#242424;}
 
+/* ruku badge */
+.ruku-badge{display:none;align-items:center;gap:8px;padding:5px 0 8px;flex-shrink:0;}
+.ruku-badge.on{display:flex;}
+.ruku-dot{width:6px;height:6px;border-radius:50%;background:#333;animation:dp 1.4s ease-in-out infinite;}
+.ruku-txt{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:#333;}
+
 /* idle */
 .idle{flex:1;display:flex;flex-direction:column;justify-content:center;gap:9px;}
 .dots{display:flex;gap:5px;}
@@ -111,12 +117,17 @@ html,body{height:100%;background:#0d0d0d;color:#fff;font-family:'Inter',sans-ser
             <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
           </div>
           <button class="btn-save" onclick="saveS()">Сохранить</button>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v2.5 — таймер без задержки</div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v2.6 — руку · автопауза</div>
         </div>
       </div>
     </div>
 
 ```
+<div class="ruku-badge" id="rukuBadge">
+  <div class="ruku-dot"></div>
+  <span class="ruku-txt" id="rukuTxt">поклон</span>
+</div>
+
 <div class="idle" id="idle">
   <div class="dots" id="dots"><span></span><span></span><span></span></div>
   <div class="idle-lbl" id="idleLbl">Нажмите микрофон</div>
@@ -277,9 +288,11 @@ async function startRec(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
     allChunks=[];pendChunks=[];win=[null,null,null];
+    liveState='idle'; savedWin=null;
     anchorDone=false;anchorRunning=false;
     if(advTmr){clearTimeout(advTmr);advTmr=null;}
     if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
+    if(rukulv){clearInterval(rukulv);rukulv=null;}
 
     const m=MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':MediaRecorder.isTypeSupported('audio/mp4')?'audio/mp4':'';
     mime=m||'audio/mp4';
@@ -317,9 +330,11 @@ async function stopManual(){
 
 function stopLive(){
   recOn=false;clearInterval(timerIv);
+  if(rukulv){clearInterval(rukulv);rukulv=null;}
   if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
   if(audioCtx){audioCtx.close();audioCtx=null;}
+  liveState='idle';
   document.getElementById('tmr').textContent='';
   if(mediaRec?.state!=='inactive'){mediaRec.stop();mediaRec.stream.getTracks().forEach(t=>t.stop());}
   document.getElementById('mic').classList.remove('on');
@@ -379,25 +394,143 @@ function showList(ayahs){
 }
 
 // ══ LIVE MODE ══════════════════════════════════
-// Strategy: record 5s → single Whisper+GPT call to anchor position
-// Then advance purely by timer (no more API calls during recitation)
-let anchorDone=false;
-let anchorRunning=false;
-let anchorTimer=null;
+// v2.6: Ruku detection — pause on "Allahu Akbar", resume after Al-Fatiha
+//
+// States:
+//   'idle'      — not started yet
+//   'reciting'  — normal scrolling by timer
+//   'ruku'      — bowing, timer paused, waiting for Fatiha
+//   'fatiha'    — Al-Fatiha being read, wait for it to finish
+//   'anchoring' — doing API anchor call
 
-function startLive(){
-  anchorDone=false; anchorRunning=false;
-  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
-  // Wait 5s then do the anchor call
-  anchorTimer=setTimeout(doAnchor, 5000);
+const CHARS_PER_SEC_LIVE = 7.2;
+function ayahMs(row){
+  if(!row)return 3000;
+  const chars=row[3].replace(/\s/g,'').length;
+  return Math.max(1200, Math.min(20000,(chars/CHARS_PER_SEC_LIVE)*1000));
 }
 
+let liveState='idle';   // idle | reciting | ruku | fatiha | anchoring
+let savedWin=null;      // window saved at ruku moment
+let anchorDone=false, anchorRunning=false;
+let anchorTimer=null;
+
+// Ruku detection — runs parallel short Whisper slices every ~3s
+let rukulv=null;        // interval
+let rukuChunks=[];      // rolling 3s chunk buffer for ruku detection
+let rukulastCheck=0;
+
+function startLive(){
+  liveState='idle';
+  savedWin=null; anchorDone=false; anchorRunning=false;
+  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
+  rukuChunks=[];
+
+  // Start ruku detector — check every 3s
+  rukulv=setInterval(()=>checkForRuku(),3000);
+
+  // Anchor after 5s of audio
+  anchorTimer=setTimeout(doAnchor,5000);
+}
+
+// ── Ruku / Allahu Akbar detection ─────────────
+async function checkForRuku(){
+  if(!recOn)return;
+  if(liveState==='anchoring'||liveState==='ruku')return;
+
+  // Take last ~3s of audio
+  const chunks=[...pendChunks];
+  pendChunks=[];
+  if(!chunks.length)return;
+
+  try{
+    const blob=new Blob(chunks,{type:mime});
+    const fd=new FormData();
+    fd.append('file',blob,'a.'+(mime.includes('webm')?'webm':'mp4'));
+    fd.append('model','whisper-1');fd.append('language','ar');
+    fd.append('prompt','الله أكبر بسم الله');
+    const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',
+      {method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
+    if(!wr.ok)return;
+    const{text}=await wr.json();
+    if(!text)return;
+    const t=text.toLowerCase().replace(/\s/g,'');
+
+    const isAkbar = t.includes('اللهأكبر')||t.includes('الله اكبر')||
+                    t.includes('allahakbar')||t.includes('allahuakbar');
+    const isFatiha= t.includes('بسماللهالرحمن')||t.includes('الحمدلله')||
+                    t.includes('الفاتحة')||t.includes('فاتح');
+    const isBismil= t.includes('بسم')||t.includes('bismillah');
+
+    if(isAkbar && liveState==='reciting'){
+      onRuku();
+    } else if((isFatiha||isBismil) && liveState==='ruku'){
+      onFatihaStart();
+    } else if(liveState==='fatiha' && !isFatiha && !isBismil){
+      // Fatiha ended, new surah starting
+      onFatihaEnd();
+    }
+  }catch(e){}
+}
+
+function onRuku(){
+  liveState='ruku';
+  // Pause timer
+  if(advTmr){clearTimeout(advTmr);advTmr=null;}
+  // Save last confirmed ayah (last item shown before ruku)
+  savedWin=[...win];
+  // Show pause indicator on current slot
+  showRukuOverlay(true);
+}
+
+function onFatihaStart(){
+  liveState='fatiha';
+  showRukuOverlay(false);
+  // Show Al-Fatiha in the window
+  const lg=getLang();
+  const f1=qGet(1,1),f2=qGet(1,2);
+  win=[null, f1?qFmt(f1,lg):null, f2?qFmt(f2,lg):null];
+  renderWin();
+  // Al-Fatiha has 7 ayahs, avg ~25s total — wait for it then re-anchor
+  setTimeout(()=>{
+    if(liveState==='fatiha') onFatihaEnd();
+  }, 28000);
+}
+
+function onFatihaEnd(){
+  liveState='anchoring';
+  // Clear accumulated audio, start fresh anchor
+  allChunks=[];pendChunks=[];
+  anchorDone=false; anchorRunning=false;
+  if(anchorTimer){clearTimeout(anchorTimer);anchorTimer=null;}
+  // Wait 5s for new surah audio to accumulate
+  anchorTimer=setTimeout(doAnchor,5000);
+}
+
+function showRukuOverlay(show){
+  const badge=document.getElementById('rukuBadge');
+  const txt=document.getElementById('rukuTxt');
+  if(show){
+    badge.classList.add('on');
+    txt.textContent='поклон — пауза';
+    document.getElementById('rfCur').textContent='— руку —';
+  } else {
+    badge.classList.remove('on');
+    txt.textContent='поклон';
+  }
+}
+
+// alias for legacy calls
+function ayahDurationMs(row){return ayahMs(row);}
+
+// ── Anchor: identify current position ─────────
 async function doAnchor(){
   anchorTimer=null;
   if(!recOn||anchorRunning)return;
   anchorRunning=true;
+  liveState='anchoring';
 
-  const chunks=[...allChunks]; // use all audio so far
+  const chunks=[...allChunks];
   if(!chunks.length){anchorRunning=false;retryAnchor();return;}
 
   try{
@@ -417,8 +550,7 @@ async function doAnchor(){
       method:'POST',headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
       body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
         role:'system',
-        content:`Quran expert. Which ayah is being recited? Be generous with errors.
-Respond ONLY JSON: {"s":78,"a":3}`
+        content:'Quran expert. Which single ayah is being recited? Respond ONLY JSON: {"s":78,"a":3}'
       },{role:'user',content:'"'+text.trim()+'"'}]})
     });
     if(!gr.ok){anchorRunning=false;retryAnchor();return;}
@@ -426,75 +558,57 @@ Respond ONLY JSON: {"s":78,"a":3}`
     const raw=(await gr.json()).choices[0]?.message?.content||'';
     let cur={};
     try{cur=JSON.parse(raw.replace(/```json|```/g,'').trim());}catch{}
-
     if(!cur.s||!cur.a){anchorRunning=false;retryAnchor();return;}
 
-    // ── Anchored! Now estimate which ayah we're on RIGHT NOW ──
-    // The anchor reflects audio from ~5s ago (recording start)
-    // Plus API took ~4-5s → we're ~8-10s ahead of the anchor
-    // Advance forward to catch up
+    // Catchup: compensate for API delay (~9s)
     const lg=getLang();
-    const apiDelay=9000; // conservative estimate: 5s recording + ~4s API
-    let anchorRow=qGet(cur.s,cur.a);
-    let catchupMs=0;
-    let catchupRow=anchorRow;
-
-    // Walk forward through ayahs until we've consumed apiDelay ms
-    while(catchupRow && catchupMs < apiDelay){
-      const dur=ayahDurationMs(catchupRow);
-      if(catchupMs+dur > apiDelay) break;
-      catchupMs+=dur;
-      const nx=qNext(catchupRow[0],catchupRow[1]);
+    const apiDelay=9000;
+    let row=qGet(cur.s,cur.a);
+    let ms=0;
+    while(row && ms<apiDelay){
+      const d=ayahMs(row);
+      if(ms+d>apiDelay)break;
+      ms+=d;
+      const nx=qNext(row[0],row[1]);
       if(!nx)break;
-      catchupRow=nx;
+      row=nx;
     }
 
-    // Set window at catch-up position
-    const prvRow=catchupRow?qPrev(catchupRow[0],catchupRow[1]):null;
-    const nxtRow=catchupRow?qNext(catchupRow[0],catchupRow[1]):null;
-    win=[
-      prvRow?qFmt(prvRow,lg):null,
-      catchupRow?qFmt(catchupRow,lg):null,
-      nxtRow?qFmt(nxtRow,lg):null
-    ];
+    const prvRow=row?qPrev(row[0],row[1]):null;
+    const nxtRow=row?qNext(row[0],row[1]):null;
+    win=[prvRow?qFmt(prvRow,lg):null, row?qFmt(row,lg):null, nxtRow?qFmt(nxtRow,lg):null];
     renderWin();
     anchorDone=true;
+    liveState='reciting';
 
-    // How far into the current ayah are we? Use remainder
-    const curDur=ayahDurationMs(catchupRow);
-    const elapsed=catchupMs>0?(apiDelay-catchupMs+catchupMs):0;
-    const remaining=Math.max(500, curDur-(apiDelay-catchupMs));
-    scheduleAdvance(remaining, lg);
+    const curDur=ayahMs(row);
+    const remaining=Math.max(500, curDur-(apiDelay-ms));
+    scheduleAdvance(remaining,lg);
 
   }catch(e){}
   anchorRunning=false;
 }
 
 function retryAnchor(){
-  // If anchor failed, retry in 4s
-  if(recOn&&!anchorDone){
-    anchorTimer=setTimeout(doAnchor,4000);
-  }
+  if(recOn&&!anchorDone){anchorTimer=setTimeout(doAnchor,4000);}
 }
 
-function scheduleAdvance(delayMs, lg){
+function scheduleAdvance(delayMs,lg){
   if(advTmr){clearTimeout(advTmr);advTmr=null;}
-  if(!recOn)return;
-  advTmr=setTimeout(()=>doAdvance(lg), delayMs);
+  if(!recOn||liveState!=='reciting')return;
+  advTmr=setTimeout(()=>doAdvance(lg),delayMs);
 }
 
 function doAdvance(lg){
   advTmr=null;
-  if(!recOn||!win[2])return;
+  if(!recOn||liveState!=='reciting'||!win[2])return;
   const newPrev=win[1];
   const newCur=win[2];
   const newCurRow=newCur?qGet(newCur.s,newCur.a):null;
   const newNxtRow=newCurRow?qNext(newCurRow[0],newCurRow[1]):null;
   win=[newPrev, newCur, newNxtRow?qFmt(newNxtRow,lg):null];
   renderWin();
-  if(newCurRow){
-    scheduleAdvance(ayahDurationMs(newCurRow), lg);
-  }
+  if(newCurRow) scheduleAdvance(ayahMs(newCurRow),lg);
 }
 
 // ══ Render 3-slot ═════════════════════════════
