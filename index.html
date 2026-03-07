@@ -116,19 +116,19 @@ flex:1;overflow:hidden;display:none;flex-direction:column;
 position:relative;touch-action:pan-y;
 }
 #ayahFeed.on{display:flex;}
-.ayah-slot{
-flex:1;display:flex;flex-direction:column;
-justify-content:center;padding:0 24px;overflow:hidden;
-}
-.ayah-slot.prev{opacity:.18;border-bottom:1px solid #0f0f0f;}
-.ayah-slot.cur{opacity:1;border-bottom:1px solid #0f0f0f;}
-.ayah-slot.next{opacity:.18;}
-.ayah-tr{font-size:clamp(.8rem,2.4vw,1rem);line-height:1.7;color:#777;font-weight:300;}
-.ayah-slot.cur .ayah-tr{font-size:clamp(1.05rem,3.2vw,1.3rem);color:#eee;font-weight:400;}
-.ayah-ar{font-family:‘Amiri’,serif;font-size:clamp(.85rem,2.5vw,1rem);line-height:1.9;direction:rtl;text-align:right;color:#222;margin-top:8px;}
-.ayah-slot.cur .ayah-ar{font-size:clamp(1rem,2.8vw,1.2rem);color:#444;}
-.ayah-ref{margin-top:5px;font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:#181818;}
-.ayah-slot.cur .ayah-ref{color:#242424;}
+.ayah-slot{display:flex;flex-direction:column;justify-content:center;padding:0 22px;overflow:hidden;}
+.ayah-slot.prev{flex:0 0 15%;opacity:.15;border-bottom:1px solid #0f0f0f;}
+.ayah-slot.cur{flex:1;overflow-y:auto;overflow-x:hidden;opacity:1;border-bottom:1px solid #0f0f0f;justify-content:flex-start;padding-top:18px;padding-bottom:18px;}
+.ayah-slot.cur::-webkit-scrollbar{width:0;}
+.ayah-slot.next{flex:0 0 15%;opacity:.15;}
+.ayah-slot.prev .ayah-tr,.ayah-slot.next .ayah-tr{font-size:.78rem;line-height:1.4;color:#555;font-weight:300;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.ayah-slot.prev .ayah-ar,.ayah-slot.prev .ayah-ref,.ayah-slot.next .ayah-ar,.ayah-slot.next .ayah-ref{display:none;}
+.ayah-tr{font-size:.78rem;line-height:1.5;color:#555;font-weight:300;}
+.ayah-slot.cur .ayah-tr{font-size:clamp(.92rem,2.5vw,1.15rem);line-height:1.72;color:#eee;font-weight:400;}
+.ayah-ar{font-family:‘Amiri’,serif;font-size:.85rem;line-height:1.9;direction:rtl;text-align:right;color:#222;}
+.ayah-slot.cur .ayah-ar{font-family:‘Amiri’,serif;font-size:clamp(.95rem,2.5vw,1.15rem);line-height:2;direction:rtl;text-align:right;color:#383838;margin-top:10px;}
+.ayah-ref{font-size:.5rem;letter-spacing:.12em;text-transform:uppercase;color:#181818;}
+.ayah-slot.cur .ayah-ref{color:#242424;margin-top:6px;}
 @keyframes slideUp{from{transform:translateY(22px);opacity:0;}to{transform:none;opacity:1;}}
 @keyframes slideDown{from{transform:translateY(-22px);opacity:0;}to{transform:none;opacity:1;}}
 #ayahFeed.slide-up .ayah-slot.cur{animation:slideUp .22s ease;}
@@ -180,7 +180,7 @@ font-family:‘Inter’,sans-serif;user-select:none;
           <button class="mode-btn" id="mA" onclick="setMode('auto')">Live</button>
         </div>
         <button class="btn-save" onclick="saveS()">Сохранить</button>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v4.1 — пауза · ручная коррекция · возобновление</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #1a1a1a;font-size:.6rem;letter-spacing:.1em;color:#2a2a2a;text-align:center;">v5.0 — локальный поиск · без GPT в цикле</div>
       </div>
     </div>
   </div>
@@ -274,6 +274,7 @@ async function loadQuranDB(){
       const en=JSON.parse(cachedEn);
       QB=ar.map(x=>[x.s,x.a,x.n,x.t,ru[x.s+':'+x.a]||'',en[x.s+':'+x.a]||'']);
       dbReady=true;
+      buildNormIndex();
       showDbStatus('',100,true);
       console.log('[db] loaded from cache:',QB.length,'ayahs');
       return;
@@ -306,12 +307,14 @@ async function loadQuranDB(){
     localStorage.setItem(DB_KEY_RU,JSON.stringify(ruMap));
     localStorage.setItem(DB_KEY_EN,JSON.stringify(enMap));
     dbReady=true;
+    buildNormIndex();
     showDbStatus('',100,true);
     console.log('[db] downloaded & cached:',QB.length,'ayahs');
   }catch(e){
     console.error('[db] load failed:',e);
     QB=FALLBACK_QB;
     dbReady=true;
+    buildNormIndex();
     showDbStatus('Офлайн — мини-база',100,false);
     setTimeout(()=>showDbStatus('',100,true),3000);
   }
@@ -488,7 +491,7 @@ async function startRec(){
       allChunks.push(e.data);
       pendChunks.push(e.data);
       rollingBuf.push(e.data);
-      if(rollingBuf.length>60)rollingBuf.shift();
+      if(rollingBuf.length>100)rollingBuf.shift(); // ~10s buffer
     }
   };
   mediaRec.start(100);
@@ -566,34 +569,31 @@ async function manualSearch(text){
   renderFeed();
 }
 
-// ══ Live mode ══════════════════════════════════════════
+// ══ Live mode v5.0 ══════════════════════════════════════
 //
-// v4.0 — компенсация задержки + движение только вперёд
+// НОВЫЙ АЛГОРИТМ — без GPT в основном цикле:
 //
-// Проблема: Whisper слышит 5с аудио, GPT обрабатывает → итого ~5-7с задержки.
-// За это время чтец читает ~1.5 аята. Решение:
-//   1. При первом якоре смещаемся вперёд на LAG_AYAHS
-//   2. Дальше двигаемся только по таймеру (не прыгаем назад)
-//   3. Poll используется только для мягкой коррекции вперёд
-//   4. Аллаху Акбар и Фатиха — всегда приоритет
+// 1. Whisper (с language:'ar') → арабский текст
+// 2. Локальный fuzzy-поиск по QB за <50мс → аят
+// 3. GPT только как fallback если fuzzy < 40% совпадение
+//
+// Это убирает 2-5с задержки GPT на каждый цикл.
+// Poll каждые 3с (вместо 5с) — быстрее реакция.
+// Буфер увеличен до 10с (100 чанков) — лучше качество Whisper.
 
-const CHARS_PER_SEC_LIVE = 7.2;
-const LAG_SEC = 0; // задержка компенсации в секундах (0 = без сдвига)
+const CHARS_PER_SEC_LIVE = 7.0;
+const LAG_SEC = 0;
 
 function ayahMs(row){
   if(!row)return 3000;
   const chars=row[3].replace(/\s/g,'').length;
-  return Math.max(1200,Math.min(20000,(chars/CHARS_PER_SEC_LIVE)*1000));
+  return Math.max(1500,Math.min(18000,(chars/CHARS_PER_SEC_LIVE)*1000));
 }
 
 function qAdvanceN(s,a,n){
   let row=qGet(s,a);
   if(!row)return null;
-  for(let i=0;i<n;i++){
-    const nxt=qNext(row[0],row[1]);
-    if(!nxt) break;
-    row=nxt;
-  }
+  for(let i=0;i<n;i++){const nxt=qNext(row[0],row[1]);if(!nxt)break;row=nxt;}
   return row;
 }
 
@@ -613,6 +613,93 @@ function qAdvanceSec(s,a,lagSec){
 
 function qIdx(s,a){return QB.findIndex(r=>r[0]===s&&r[1]===a);}
 
+// ── Нормализация арабского текста ──────────────────────
+// Убираем огласовки, хамзы, удвоения — оставляем скелет согласных
+function arNorm(s){
+  if(!s)return '';
+  return s
+    .replace(/[\u064B-\u065F\u0670]/g,'')   // огласовки
+    .replace(/[\u0622\u0623\u0625\u0627]/g,'\u0627') // все алифы → ا
+    .replace(/\u0629/g,'\u0647')             // та-марбута → ха
+    .replace(/\u0649/g,'\u064A')             // алиф-максура → йа
+    .replace(/\u0648\u0648/g,'\u0648')       // двойной вав
+    .replace(/\s+/g,'')
+    .trim();
+}
+
+// Предвычисляем нормализованные аяты при загрузке БД
+let QB_NORM = []; // parallel array of normalized arabic strings
+
+function buildNormIndex(){
+  QB_NORM = QB.map(r => arNorm(r[3]));
+  console.log('[fuzzy] norm index built:', QB_NORM.length, 'ayahs');
+}
+
+// ── Fuzzy matching ─────────────────────────────────────
+// Считаем долю совпадающих триграмм (быстро, устойчиво к ошибкам Whisper)
+function trigrams(s){
+  const set=new Set();
+  for(let i=0;i<=s.length-3;i++) set.add(s.slice(i,i+3));
+  return set;
+}
+
+function trigramScore(a,b){
+  if(!a||!b)return 0;
+  const ta=trigrams(a), tb=trigrams(b);
+  if(!ta.size||!tb.size)return 0;
+  let common=0;
+  ta.forEach(t=>{if(tb.has(t))common++;});
+  return common/Math.max(ta.size,tb.size);
+}
+
+// Ищем лучший аят в QB по нормализованному тексту из Whisper
+// Если есть текущий win[1], ищем сначала в окне ±20 аятов (быстро),
+// потом при необходимости по всей БД
+function fuzzyFind(rawAr, curS, curA){
+  const q = arNorm(rawAr);
+  if(q.length < 8) return null; // слишком мало текста
+
+  let bestScore = 0;
+  let bestIdx = -1;
+
+  // Определяем диапазон поиска
+  const curIdx = (curS&&curA) ? qIdx(curS,curA) : -1;
+  let searchStart = 0, searchEnd = QB.length-1;
+
+  if(curIdx >= 0){
+    // Сначала ищем в окне ±25 аятов вокруг текущего
+    searchStart = Math.max(0, curIdx - 5);  // не назад больше 5
+    searchEnd = Math.min(QB.length-1, curIdx + 25);
+  }
+
+  for(let i=searchStart; i<=searchEnd; i++){
+    const score = trigramScore(q, QB_NORM[i]);
+    if(score > bestScore){
+      bestScore = score;
+      bestIdx = i;
+    }
+  }
+
+  // Если в окне нашли слабо — ищем по всей БД
+  if(bestScore < 0.35 && curIdx >= 0){
+    for(let i=0; i<QB.length; i++){
+      if(i>=searchStart && i<=searchEnd) continue;
+      const score = trigramScore(q, QB_NORM[i]);
+      if(score > bestScore){
+        bestScore = score;
+        bestIdx = i;
+      }
+    }
+  }
+
+  console.log('[fuzzy] best score:', bestScore.toFixed(2),
+    bestIdx>=0 ? QB[bestIdx][0]+':'+QB[bestIdx][1] : 'none',
+    '| query:', q.slice(0,30));
+
+  if(bestScore < 0.28) return null; // ниже порога — не уверены
+  return {row: QB[bestIdx], score: bestScore};
+}
+
 let liveState='idle';
 let pollIv=null, pollRunning=false;
 let rukuAt=0;
@@ -628,9 +715,12 @@ function startLive(){
   pollRunning=false;
   anchored=false;
   if(pollIv){clearInterval(pollIv);pollIv=null;}
-  pollIv=setInterval(doPoll,5000);
+  // Строим индекс если ещё нет
+  if(QB_NORM.length === 0 && QB.length > 0) buildNormIndex();
+  pollIv=setInterval(doPoll, 3000); // каждые 3с вместо 5с
 }
 
+// ── Poll: Whisper → fuzzy → (опционально GPT fallback) ──
 async function doPoll(){
   if(!recOn||pollRunning)return;
   const chunks=[...rollingBuf];
@@ -644,7 +734,8 @@ async function doPoll(){
     const fd=new FormData();
     fd.append('file',blob,'p.'+(mime.includes('webm')?'webm':'mp4'));
     fd.append('model','whisper-1');
-    fd.append('prompt','الله أكبر الله أكبر بسم الله الرحمن الرحيم الحمد لله رب العالمين');
+    fd.append('language','ar');  // ← ВАЖНО: фиксируем арабский
+    fd.append('prompt','بسم الله الرحمن الرحيم الحمد لله رب العالمين الله أكبر');
     const wr=await fetch('https://api.openai.com/v1/audio/transcriptions',
       {method:'POST',headers:{Authorization:'Bearer '+apiKey},body:fd});
     if(!wr.ok){pollRunning=false;setMicState('listening');return;}
@@ -652,73 +743,81 @@ async function doPoll(){
     if(!text?.trim()){pollRunning=false;setMicState('listening');return;}
 
     const raw=text.trim();
-    console.log('[poll]',liveState,'→',raw.slice(0,90));
+    console.log('[poll]',liveState,'→',raw.slice(0,80));
 
-    // ── Шаг 1: Аллаху Акбар (всегда приоритет) ──
-    const norm=raw.replace(/[\u064B-\u065F]/g,'').replace(/\s+/g,'');
-    const hasAkbar=
-      norm.includes('\u0627\u0644\u0644\u0647\u0623\u0643\u0628\u0631')||
-      /\u0628\u0627\u0644\u0644\u0647\s*\u0623\u0643\u0628\u0631\b/.test(raw)||
-      /allahu\s*akbar/i.test(raw)||/\bakbar\b/i.test(raw);
+    // ── 1. Аллаху Акбар — локальный детект (приоритет) ──
+    const norm=arNorm(raw);
+    const hasAkbar =
+      norm.includes('\u0627\u0644\u0644\u0647\u0627\u0643\u0628\u0631') || // اللهاكبر
+      /\u0627\u0644\u0644\u0647\s*\u0623\u0643\u0628\u0631/.test(raw) ||
+      /allahu\s*akbar/i.test(raw);
 
     if(hasAkbar){
-      console.log('[poll] \u2605 AKBAR');
+      console.log('[poll] ★ AKBAR');
       handleAction({action:'ruku'},lg);
       pollRunning=false;setMicState('listening');return;
     }
 
-    // ── Шаг 2: Фатиха (только во время паузы после руку) ──
+    // ── 2. Фатиха — локальный детект (только после руку) ──
     const msSinceRuku=rukuAt>0?Date.now()-rukuAt:99999;
-    if(liveState==='paused'&&msSinceRuku>4000){
+    if(liveState==='paused'&&msSinceRuku>3000){
       const hasFatiha=
-        norm.includes('\u0627\u0644\u062d\u0645\u062f\u0644\u0644\u0647')||
-        norm.includes('\u0631\u0628\u0627\u0644\u0639\u0627\u0644\u0645\u064a\u0646')||
-        norm.includes('\u0645\u0627\u0644\u0643\u064a\u0648\u0645\u0627\u0644\u062f\u064a\u0646')||
-        norm.includes('\u0627\u064a\u0627\u0643\u0646\u0639\u0628\u062f')||
-        norm.includes('\u0625\u064a\u0627\u0643\u0646\u0639\u0628\u062f')||
-        norm.includes('\u0627\u0644\u0635\u0631\u0627\u0637\u0627\u0644\u0645\u0633\u062a\u0642\u064a\u0645')||
-        /alhamdu\s*lill/i.test(raw)||/rabbi[lh]\s*[ae]alamin/i.test(raw);
+        norm.includes('\u0627\u0644\u062d\u0645\u062f\u0644\u0644\u0647') ||
+        norm.includes('\u0631\u0628\u0627\u0644\u0639\u0627\u0644\u0645\u064a\u0646') ||
+        norm.includes('\u0645\u0644\u0643\u064a\u0648\u0645\u0627\u0644\u062f\u064a\u0646') ||
+        norm.includes('\u0627\u064a\u0627\u0643\u0646\u0639\u0628\u062f') ||
+        norm.includes('\u0627\u0644\u0635\u0631\u0627\u0637\u0627\u0644\u0645\u0633\u062a\u0642\u064a\u0645') ||
+        /alhamdu/i.test(raw);
       if(hasFatiha){
-        console.log('[poll] \u2605 FATIHA');
+        console.log('[poll] ★ FATIHA');
         handleAction({action:'fatiha'},lg);
         pollRunning=false;setMicState('listening');return;
       }
     }
 
-    // ── Шаг 3: GPT определяет аят ──
-    const curCtx=win[1]
-      ?`Currently showing: Surah ${win[1].s} Ayah ${win[1].a}. State: ${liveState}.`
-      :'Nothing shown yet (first recognition).';
+    // Не обновляем позицию если на паузе
+    if(liveState==='paused'){pollRunning=false;setMicState('listening');return;}
 
+    // ── 3. Fuzzy поиск по QB (быстро, без API) ──
+    const curS=win[1]?.s, curA=win[1]?.a;
+    const fuzzy=fuzzyFind(raw, curS, curA);
+
+    if(fuzzy && fuzzy.score >= 0.28){
+      // Уверены — используем напрямую
+      console.log('[poll] fuzzy hit score='+fuzzy.score.toFixed(2));
+      handleAction({action:'recite',s:fuzzy.row[0],a:fuzzy.row[1]},lg);
+      pollRunning=false;setMicState('listening');return;
+    }
+
+    // ── 4. GPT fallback (только если fuzzy не нашёл ничего) ──
+    console.log('[poll] fuzzy miss → GPT fallback');
+    const curCtx=win[1]
+      ?`Currently showing: Surah ${win[1].s} Ayah ${win[1].a}.`
+      :'First recognition.';
     const gr=await fetch('https://api.openai.com/v1/chat/completions',{
       method:'POST',
       headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
-      body:JSON.stringify({model:'gpt-4o',max_tokens:60,messages:[{
+      body:JSON.stringify({model:'gpt-4o',max_tokens:40,messages:[{
         role:'system',
-        content:`Quran recitation expert monitoring live mosque prayer. ${curCtx}
-There is a ~5 second audio processing lag (we are slightly behind the imam).
-Identify what was recited in the last 5 seconds. Return ONLY one JSON:
-{"action":"recite","s":67,"a":3}  — Quran ayah number
-{"action":"fatiha"}                — Al-Fatiha (surah 1) specifically
-{"action":"ruku"}                  — "Allahu Akbar" alone (between positions)
-{"action":"silence"}               — silence, dhikr, unclear audio
-Rules:
-- Be generous with transcription errors, pick best ayah match
-- If unsure between two adjacent ayahs, pick the LATER one (we lag behind)
-- "bismillah" alone = silence (every surah begins with it)
-- ONLY return the JSON object`
+        content:`Quran expert. ${curCtx} Whisper transcribed this Arabic from live recitation. Find the Quran ayah. Return ONLY JSON:
+{"action":"recite","s":2,"a":255} or {"action":"silence"} if truly unrecognizable.`
       },{role:'user',content:`"${raw}"`}]})
     });
     if(!gr.ok){pollRunning=false;setMicState('listening');return;}
     const graw=(await gr.json()).choices[0]?.message?.content||'';
     let res={};
-    try{res=JSON.parse(graw.replace(/```json|```/g,'').trim());}catch{pollRunning=false;setMicState('listening');return;}
-    console.log('[poll] GPT \u2192',JSON.stringify(res));
+    try{res=JSON.parse(graw.replace(/```json|```/g,'').trim());}catch{
+      pollRunning=false;setMicState('listening');return;
+    }
+    console.log('[poll] GPT →',JSON.stringify(res));
     handleAction(res,lg);
+
   }catch(e){console.warn('[poll]',e);}
   pollRunning=false;
   setMicState(recOn?'listening':'idle');
 }
+
+
 
 function handleAction(res,lg){
   switch(res.action){
